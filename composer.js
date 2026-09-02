@@ -2,7 +2,7 @@
 // Pure ES module with no dependencies; runs in node and in the browser.
 // Every random decision comes from one seeded RNG, so a seed fully determines a piece.
 
-export function mulberry32(seed) {
+function mulberry32(seed) {
   let a = seed >>> 0;
   return function () {
     a = (a + 0x6d2b79f5) >>> 0;
@@ -120,7 +120,7 @@ export const STYLES = {
 // Note budget: the shortest allowed rhythmic value (in pulses) follows the tempo.
 const MELODY_NOTES_PER_SEC = 6;
 const LEFT_NOTES_PER_SEC = 6.5;
-const minMelodyDur = (tempo, beatUnit) => tempo / (60 * MELODY_NOTES_PER_SEC);
+const minMelodyDur = (tempo) => tempo / (60 * MELODY_NOTES_PER_SEC);
 
 // How long the last chord rings, and how many bars that takes, so it neither drones nor cuts off.
 const ringPulsesFor = (tempo) => (tempo <= 80 ? 3.6 : tempo <= 110 ? 3.1 : 2.7) * tempo / (60 * 1.35);
@@ -641,7 +641,7 @@ const BLOCK = {
   2: [[[0, 1], 'on every pulse'], [[0], 'sparse'], [[0, 2 / 3, 1, 5 / 3], 'lilting'], [[0, 1 / 3, 2 / 3, 1, 4 / 3, 5 / 3], 'flowing']],
 };
 
-export function drawFiguration(rng, style, tempo) {
+function drawFiguration(rng, style, tempo) {
   const beats = style.beats;
   const compound = beats === 2;
   const subdivs = compound ? [1, 3, 6] : [1, 2, 3, 4];
@@ -720,7 +720,7 @@ export function drawFiguration(rng, style, tempo) {
 }
 
 // A variation of a figuration for a repeated section: same kind, one parameter changed.
-function varyFiguration(rng, fig, style, tempo) {
+function varyFiguration(rng, fig, style) {
   const copy = { ...fig };
   if (fig.kind === 'broken') {
     const roll = rng();
@@ -1028,8 +1028,6 @@ function limitRepeats(notes, chord, state, bassLow) {
     const cooling = (p) => { const r = recOf(p); return !!r && t - r.last <= 0.5 + 1e-6 && r.count <= 0; };
     const wouldHammer = (grp) => live(grp).some((n) => hot(n.pitch) + 1 > HAMMER_MAX || cooling(n.pitch));
 
-    const trace = globalThis.PIANO_TRACE && t >= globalThis.PIANO_TRACE[0] && t <= globalThis.PIANO_TRACE[1] ? (m) => console.log('   ', t.toFixed(2), m, g.map((x) => x.pitch + (x.drop ? 'd' : '')).join(' ')) : null;
-    if (trace) trace('in  ');
     // 1. Strike-level repetition.
     let key = keyOf(g);
     const repeats = key === state.lastKey ? state.run + 1 : 1;
@@ -1081,7 +1079,6 @@ function limitRepeats(notes, chord, state, bassLow) {
       key = keyOf(g);
     }
 
-    if (trace) trace('s1  ');
     // 2. Per-pitch hammering (decisions recorded, state applied at the end).
     const done = new Set();
     for (const n of g) {
@@ -1134,7 +1131,6 @@ function limitRepeats(notes, chord, state, bassLow) {
       done.add(n.pitch);
     }
     Object.assign(state.hammer, updates);
-    if (trace) trace('out ' + JSON.stringify(Object.fromEntries(Object.entries(updates).map(([k, v]) => [k, v.count]))));
 
     // Safety net: whatever the substitutions did, three identical strikes never leave this function.
     if (keyOf(g) && keyOf(g) === h[h.length - 1] && keyOf(g) === h[h.length - 2]) {
@@ -1173,7 +1169,7 @@ function createAssembler({ rngMelody, rngLeft, beats, ch, scale, tempo, style, s
   const addAccomp = (bars, fig, { forceRootFirst = true, phraseBars = true, phraseIndex = 0, alwaysRoot = false, dyn = 1 } = {}) => {
     // Static textures never run through a whole section unchanged: the second phrase gets a variant.
     if (phraseIndex === 1 && STATIC_KINDS.includes(fig.kind)) {
-      if (!secondHalf.has(fig)) secondHalf.set(fig, varyFiguration(rngLeft, fig, style, tempo));
+      if (!secondHalf.has(fig)) secondHalf.set(fig, varyFiguration(rngLeft, fig, style));
       fig = secondHalf.get(fig);
     }
     const flat = bars.flatMap((segments, i) => segments.map((seg, j) => ({ seg, i, j, segments })));
@@ -1270,7 +1266,7 @@ function createAssembler({ rngMelody, rngLeft, beats, ch, scale, tempo, style, s
   };
 }
 
-function finishPiece(asm, { rngMelody, beats, introLength, style, seed, melodySeed, leftSeed, mode, styleKey, rootPc, tempo, beatUnit, compound, features, description, finalBars }) {
+function finishPiece(asm, { rngMelody, beats, introLength, style, seed, melodySeed, leftSeed, mode, styleKey, rootPc, tempo, beatUnit, meter, features, description, finalBars }) {
   const finalOnsetBars = finalBars ?? 2;
   const { melody, accomp } = asm;
   const totalBars = asm.cursor;
@@ -1384,12 +1380,11 @@ function finishPiece(asm, { rngMelody, beats, introLength, style, seed, melodySe
     ornament: !!n.ornament, pickup: !!n.pickup, roll: !!n.roll, spread: !!n.spread, pedal: n.pedal !== false,
   })).sort((a, b) => a.time - b.time || a.pitch - b.pitch);
   return {
-    seed, melodySeed, leftSeed, mode, root: NOTE_NAMES[rootPc], style: styleKey, tempo, beats, beatUnit, meter: compound ? '6/8' : `${beats}/4`,
+    seed, melodySeed, leftSeed, mode, root: NOTE_NAMES[rootPc], style: styleKey, tempo, beats, beatUnit, meter,
     totalBars, totalBeats, sections: asm.sections, chords: asm.chordsTimeline, notes, features, description,
     rubato: style.rubato ?? 0.5, swing: !!style.swing,
     // The slowing belongs to the last moving music, not to the chord that is already ringing.
     ritardando: { start: Math.max(0, totalBeats - finalOnsetBars * beats - 1.6 * beats), end: totalBeats - finalOnsetBars * beats },
-    ritardandoBars: finalOnsetBars,
   };
 }
 
@@ -1413,6 +1408,7 @@ export function generatePiece(options = {}) {
   const beats = style.beats;
   const beatUnit = style.beatUnit ?? 1;
   const compound = beats === 2;
+  const meter = compound ? '6/8' : `${beats}/4`;
   const tempo = options.tempo ?? style.tempo;
   // Three independent streams: the piece (form, harmony), the melody and the left hand.
   // Re-rolling one hand therefore leaves the other one untouched.
@@ -1424,9 +1420,9 @@ export function generatePiece(options = {}) {
   const rngLeft = mulberry32(leftSeed * 5 + 1299709 + styleOffset);
   const ch = drawCharacter(rngMelody, style.character);
   const scale = (style.blues ? BLUES_SCALE[mode] : SCALES[mode]).map((i) => (rootPc + i) % 12);
-  const ctx = { beats, mode, rootPc, scale, ch, compound, tempo, blues: !!style.blues, swing: !!style.swing, minDur: minMelodyDur(tempo, beatUnit), leadingPc: (rootPc + 11) % 12 };
+  const ctx = { beats, mode, rootPc, scale, ch, compound, tempo, blues: !!style.blues, swing: !!style.swing, minDur: minMelodyDur(tempo), leadingPc: (rootPc + 11) % 12 };
   const parse = (bars, m = mode, r = rootPc) => parsePhrase(bars, m, r, beats);
-  const common = { rng, rngMelody, rngLeft, beats, ch, scale, tempo, style, seed, melodySeed, leftSeed, mode, styleKey, rootPc, beatUnit, compound };
+  const common = { rng, rngMelody, rngLeft, beats, ch, scale, tempo, style, seed, melodySeed, leftSeed, mode, styleKey, rootPc, beatUnit, compound, meter };
   if (style.blues) return generateBlues(ctx, parse, common);
 
   const prog = PROGRESSIONS[mode];
@@ -1438,7 +1434,7 @@ export function generatePiece(options = {}) {
   const introBars = pick(rng, prog.intro);
   const codaBars = chance(rng, 0.5) ? pick(rng, prog.coda4) : pick(rng, prog.coda2);
   const figA = drawFiguration(rngLeft, style, tempo);
-  const figA2 = chance(rngLeft, 0.5) ? varyFiguration(rngLeft, figA, style, tempo) : figA;
+  const figA2 = chance(rngLeft, 0.5) ? varyFiguration(rngLeft, figA, style) : figA;
   const figB = chance(rngLeft, 0.7) ? drawFiguration(rngLeft, style, tempo) : figA;
   const figC = drawFiguration(rngLeft, style, tempo);
   const figCoda = { kind: 'block', strikes: [0], held: true, bassEvery: true, wide: false, lowBass: figA.lowBass, cadenceFill: 'none', accentBeat: 0, label: 'sustained chords', signature: 'coda' };
@@ -1502,7 +1498,7 @@ export function generatePiece(options = {}) {
 
   // The reprise is decorated rather than replayed, and it is the loudest thing in the piece.
   const antecedentVaried = varyPhrase(rngMelody, ctx, antecedent, 2);
-  const figLast = varyFiguration(rngLeft, figA, style, tempo);
+  const figLast = varyFiguration(rngLeft, figA, style);
   let lastSection = null, lastConsBars = null;
   form.parts.forEach((part, idx) => {
     const isLast = idx === form.parts.length - 1;
@@ -1574,7 +1570,7 @@ export function generatePiece(options = {}) {
   if (features.leftA2) leftParts.push(`A': ${features.leftA2}`);
   if (features.leftB) leftParts.push(`B: ${features.leftB}`);
   if (features.leftC) leftParts.push(`C: ${features.leftC}`);
-  const description = `${compound ? '6/8' : `${beats}/4`}, form ${features.form} (${features.parts}), ${intro.length}-bar intro, ${asm.cursor - codaStart}-bar coda${bInRelative ? ', B in the relative key' : ''}. `
+  const description = `${meter}, form ${features.form} (${features.parts}), ${intro.length}-bar intro, ${asm.cursor - codaStart}-bar coda${bInRelative ? ', B in the relative key' : ''}. `
     + `Left hand ${leftParts.join('; ')}. ` + melodyText(features, 'last A');
   return finishPiece(asm, { ...common, introLength: intro.length, features, description, finalBars });
 }
@@ -1587,7 +1583,7 @@ function generateBlues(ctx, parse, common) {
   const introBars = pick(rng, [[tonic], [tonic, tonic], ['V7']]);
   const intro = parse(introBars);
   const figA = drawFiguration(rngLeft, style, tempo);
-  const figB = chance(rngLeft, 0.75) ? drawFiguration(rngLeft, style, tempo) : varyFiguration(rngLeft, figA, style, tempo);
+  const figB = chance(rngLeft, 0.75) ? drawFiguration(rngLeft, style, tempo) : varyFiguration(rngLeft, figA, style);
   for (const f of [figA, figB]) if (f.kind === 'boogie' || f.kind === 'walking') f.cadenceFill = 'none';
   const figCoda = { kind: 'block', strikes: [0], held: true, bassEvery: true, wide: false, lowBass: figA.lowBass, cadenceFill: 'none', accentBeat: 0, label: 'sustained chord', signature: 'coda' };
   const sectionDynamics = { 'Chorus 1': 0.95, 'Chorus 2': rand(rng, 0.85, 1.05), 'Chorus 3': 1.05, coda: 0.8 };
@@ -1632,7 +1628,7 @@ function generateBlues(ctx, parse, common) {
     form: '12-bar blues', parts: 'intro, 3 choruses, coda', introBars: intro.length, codaBars: 2, bInRelative: false,
     left: figA.label, leftB: figB.label, leftSignature: figA.signature, leftBSignature: figB.signature, ...melodyFeatures(ch),
   };
-  const description = `4/4 shuffle, 12-bar blues, three choruses (call, call, response), ${intro.length}-bar intro, 2-bar coda. `
+  const description = `${common.meter} shuffle, 12-bar blues, three choruses (call, call, response), ${intro.length}-bar intro, 2-bar coda. `
     + `Left hand choruses 1 and 3: ${figA.label}; chorus 2: ${figB.label}. ` + melodyText(features, 'last chorus');
   return finishPiece(asm, { ...common, introLength: intro.length, features, description, finalBars: finalBarsFor(tempo, beats) });
 }

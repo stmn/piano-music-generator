@@ -8,6 +8,7 @@ const els = {
   midi: $('midi'), wav: $('wav'), mp3: $('mp3'), status: $('status'), title: $('title'), desc: $('desc'), roll: $('roll'), piano: $('piano'),
   volRight: $('volRight'), volRightVal: $('volRightVal'), volLeft: $('volLeft'), volLeftVal: $('volLeftVal'),
   editMode: $('editMode'), rollwrap: $('rollwrap'), art: $('art'), artVal: $('artVal'),
+  details: $('details'), detailsModal: $('detailsModal'), detailsClose: $('detailsClose'),
 };
 
 for (const [key, s] of Object.entries(STYLES)) els.style.add(new Option(s.label, key));
@@ -120,6 +121,7 @@ els.wav.addEventListener('click', () => downloadAudio('wav'));
 els.mp3.addEventListener('click', () => downloadAudio('mp3'));
 window.addEventListener('resize', () => draw(playing ? Tone.Transport.seconds : seekSeconds));
 window.addEventListener('keydown', (e) => {
+  if (els.detailsModal.open) return;
   if (e.code === 'Space' && !['INPUT', 'SELECT', 'BUTTON'].includes(document.activeElement.tagName)) { e.preventDefault(); if (!els.play.disabled) (playing ? stop() : play()); }
 });
 // ---------------------------------------------------------------------------
@@ -191,6 +193,11 @@ function audition(note) {
   Tone.start();
   sampler.triggerAttackRelease(Tone.Frequency(note.pitch, 'midi'), Math.min(0.6, note.duration * 60 / piece.tempo), undefined, Math.min(1, note.velocity * gain[note.hand]));
 }
+
+// The details panel: opened from one link, closed by Escape, the close link or a click outside.
+els.details.addEventListener('click', () => els.detailsModal.showModal());
+els.detailsClose.addEventListener('click', () => els.detailsModal.close());
+els.detailsModal.addEventListener('click', (e) => { if (e.target === els.detailsModal) els.detailsModal.close(); });
 
 els.roll.addEventListener('mousedown', (e) => {
   if (!piece || e.button !== 0) return;

@@ -68,13 +68,32 @@
   #roll.grab { cursor: grabbing; }
   button.toggle.on { background: oklch(0.32 0.06 80); color: var(--accent); }
 
-  /* Everything descriptive lives below the roll. */
+  /* The page ends on the title line; the rest sits behind the details link. */
   .about { display: flex; flex-direction: column; gap: 8px; max-width: 75ch; color: var(--muted); font-size: 13px; }
   .about #title { margin: 0; font-size: 15px; color: var(--text); }
   .about #title .meta { color: var(--muted); font-size: 13px; margin-left: 8px; font-variant-numeric: tabular-nums; }
-  .about #desc { margin: 0; text-wrap: pretty; }
+  .about { flex-direction: row; align-items: baseline; gap: 12px; }
+  #desc { margin: 0 0 16px; text-wrap: pretty; color: var(--muted); }
   .legend { display: flex; flex-wrap: wrap; gap: 16px; }
   .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+
+  /* Everything beyond the title line sits behind one modest link. */
+  button.link {
+    height: auto; padding: 0; background: none; border: 0; color: var(--muted);
+    font: inherit; font-size: 13px; cursor: pointer; text-decoration: underline;
+    text-underline-offset: 3px; text-decoration-color: var(--line);
+  }
+  button.link:hover { background: none; color: var(--text); text-decoration-color: var(--muted); }
+  button.link:active { transform: none; }
+  dialog {
+    max-width: 62ch; padding: 24px 26px 20px; border: 0; border-radius: 12px;
+    background: var(--panel); color: var(--muted); font: inherit; font-size: 13px; line-height: 1.6;
+  }
+  dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+  dialog #detailsClose { display: block; margin: 20px 0 0 auto; }
+  @starting-style { dialog[open] { opacity: 0; } }
+  dialog { opacity: 1; transition: opacity 160ms var(--ease); }
+  @media (prefers-reduced-motion: reduce) { dialog { transition: none; } }
 
   @media (max-width: 720px) {
     .push { margin-left: 0; }
@@ -148,13 +167,18 @@
 
   <section class="about">
     <p id="title"></p>
+    <button id="details" class="link" type="button">details</button>
+  </section>
+
+  <dialog id="detailsModal" aria-label="Piece details">
     <p id="desc"></p>
     <div class="legend">
       <span><i style="background:var(--left)"></i>left hand (accompaniment)</span>
       <span><i style="background:var(--right)"></i>right hand (melody)</span>
       <span><i style="background:var(--accent)"></i>playhead</span>
     </div>
-  </section>
+    <button id="detailsClose" class="link" type="button">close</button>
+  </dialog>
 </main>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>

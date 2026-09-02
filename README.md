@@ -9,7 +9,7 @@ preferences and a bias on the melodic character. Export as MIDI, WAV or MP3.
 
 The same seed always writes the same piece.
 
-![Sixteen styles](itch/styles.png)
+![Sixteen styles](docs/styles.png)
 
 ## What it does badly
 
@@ -126,8 +126,8 @@ their textures are drawn independently. On top of that:
 - `midi.js` - Standard MIDI File writer (handles 6/8)
 - `app.js`, `index.html` - interface, playback, piano roll
 - `composer.test.mjs` - musical invariants over many seeds and a diversity check
-- `itch/` - everything for the itch.io page: store description, setup notes with the palette,
-  cover and infographics. `tools/build-itch.sh` packs the four runtime files into the upload zip.
+- `docs/` - cover and infographics
+- `tools/build-itch.sh` - packs the four runtime files into the zip itch.io expects
 
 ## Licence
 
