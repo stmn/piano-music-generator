@@ -126,7 +126,7 @@ their textures are drawn independently. On top of that:
 - `midi.js` - Standard MIDI File writer (handles 6/8)
 - `app.js`, `index.html` - interface, playback, piano roll
 - `composer.test.mjs` - musical invariants over many seeds and a diversity check
-- `docs/` - screenshot, cover and infographics for the itch.io page
+- `docs/` - the screenshot used above
 - `tools/build-itch.sh` - packs the four runtime files into the zip itch.io expects
 
 ## Licence
