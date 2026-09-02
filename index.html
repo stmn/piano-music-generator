@@ -46,7 +46,7 @@
   /* Icons from Lucide (ISC licence, https://lucide.dev), inlined so nothing is fetched for them. */
   .icon { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   .field > span .icon { width: 14px; height: 14px; vertical-align: -2px; margin-right: 5px; color: var(--muted); }
-  .field > span.lbl { justify-content: flex-end; } /* icon and word stay together, no value to push right */
+  .field > span.lbl { justify-content: flex-end; gap: 0; } /* no value to push right, so icon and word stay together */
   button {
     height: 36px; padding: 0 14px; background: var(--field); color: var(--text); border: 0; border-radius: var(--radius);
     font: inherit; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
@@ -73,7 +73,7 @@
   .about { display: flex; flex-direction: column; gap: 8px; max-width: 75ch; color: var(--muted); font-size: 13px; }
   .about #title { margin: 0; font-size: 15px; color: var(--text); }
   .about #title .meta { color: var(--muted); font-size: 13px; margin-left: 8px; font-variant-numeric: tabular-nums; }
-  .about { flex-direction: row; align-items: baseline; gap: 12px; }
+  .about { flex-direction: row; align-items: center; gap: 7px; }
   #desc { margin: 0 0 16px; text-wrap: pretty; color: var(--muted); }
   .legend { display: flex; flex-wrap: wrap; gap: 16px; }
   .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
@@ -85,7 +85,8 @@
     text-underline-offset: 3px; text-decoration-color: var(--line);
   }
   button.link:hover { background: none; color: var(--text); text-decoration-color: var(--muted); }
-  button.icon-only { padding: 4px; color: var(--muted); text-decoration: none; }
+  button.icon-only { padding: 3px; color: var(--muted); text-decoration: none; }
+  button.icon-only .icon { width: 15px; height: 15px; }
   button.icon-only:hover { color: var(--accent); background: none; }
   button.link:active { transform: none; }
   dialog {
@@ -140,7 +141,7 @@
       </div>
     </div>
     <div class="row">
-      <button id="play" type="button" class="primary" disabled><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3 20 12 6 21z" fill="currentColor" stroke-linejoin="round"/></svg>Play</button>
+      <button id="play" type="button" class="primary" disabled><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3 20 12 6 21z" fill="currentColor" stroke="none"/></svg>Play</button>
       <label class="field"><span>Piano</span>
         <select id="piano" style="min-width:140px"></select>
       </label>

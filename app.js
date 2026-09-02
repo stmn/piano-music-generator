@@ -3,8 +3,8 @@ import { pieceToMidi } from './midi.js';
 
 // Icons from Lucide (ISC licence, https://lucide.dev), inlined.
 const ICON = {
-  play: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3 20 12 6 21z" fill="currentColor" stroke-linejoin="round"/></svg>',
-  stop: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2" fill="currentColor"/></svg>',
+  play: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3 20 12 6 21z" fill="currentColor" stroke="none"/></svg>',
+  stop: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2" fill="currentColor" stroke="none"/></svg>',
 };
 
 const $ = (id) => document.getElementById(id);
