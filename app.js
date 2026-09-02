@@ -11,7 +11,7 @@ const $ = (id) => document.getElementById(id);
 const els = {
   style: $('style'), root: $('root'), mode: $('mode'), tempo: $('tempo'), tempoVal: $('tempoVal'),
   seed: $('seed'), randomSeed: $('randomSeed'), newLeft: $('newLeft'), newMelody: $('newMelody'), play: $('play'),
-  midi: $('midi'), wav: $('wav'), mp3: $('mp3'), status: $('status'), title: $('title'), desc: $('desc'), roll: $('roll'), piano: $('piano'),
+  midi: $('midi'), wav: $('wav'), mp3: $('mp3'), status: $('status'), title: $('title'), desc: $('desc'), roll: $('roll'), voice: $('voice'),
   volRight: $('volRight'), volRightVal: $('volRightVal'), volLeft: $('volLeft'), volLeftVal: $('volLeftVal'),
   art: $('art'), artVal: $('artVal'),
   details: $('details'), detailsModal: $('detailsModal'), detailsClose: $('detailsClose'),
@@ -25,7 +25,7 @@ let piece = null;
 let timeMap = null;
 let part = null;
 let playing = false;
-let samplerReady = false;
+let voiceReady = false;
 let rendering = false;
 let beatTable = []; // [pulse, seconds] every quarter pulse, for the playhead
 let seekSeconds = 0; // playhead position while stopped
@@ -58,7 +58,7 @@ function soundfont(path, release = 1) {
   return { urls, release, baseUrl: `https://gleitz.github.io/midi-js-soundfonts/${path}-mp3/` };
 }
 // `gain` levels the voices to the same loudness (measured as RMS on the same piece).
-const PIANOS = {
+const VOICES = {
   salamander: { group: 'Pianos', label: 'Salamander grand', config: SALAMANDER, gain: 1 },
   concert: { group: 'Pianos', label: 'Concert grand', config: soundfont('MusyngKite/acoustic_grand_piano'), gain: 4.6 },
   bright: { group: 'Pianos', label: 'Bright grand', config: soundfont('MusyngKite/bright_acoustic_piano'), gain: 3.7 },
@@ -94,14 +94,14 @@ const PIANOS = {
     synthLeft: { oscillator: { type: 'fatsquare', count: 2, spread: 10 }, envelope: { attack: 0.006, decay: 0.4, sustain: 0.5, release: 0.35 } },
   },
 };
-for (const [key, p] of Object.entries(PIANOS)) {
+for (const [key, p] of Object.entries(VOICES)) {
   const name = p.group ?? 'Pianos';
-  let group = [...els.piano.children].find((g) => g.label === name);
-  if (!group) { group = document.createElement('optgroup'); group.label = name; els.piano.appendChild(group); }
+  let group = [...els.voice.children].find((g) => g.label === name);
+  if (!group) { group = document.createElement('optgroup'); group.label = name; els.voice.appendChild(group); }
   group.appendChild(new Option(p.label, key));
 }
-let pianoKey = 'salamander';
-const instruments = new Map(); // piano key -> a loaded voice
+let voiceKey = 'salamander';
+const loaded = new Map(); // voice key -> a built voice
 
 // ---------------------------------------------------------------------------
 // Controls
@@ -192,43 +192,43 @@ function buildSampler(p, destination, onReady, onError) {
 }
 
 function loadInstrument(key) {
-  if (instruments.has(key)) return Promise.resolve(instruments.get(key));
-  const p = PIANOS[key];
+  if (loaded.has(key)) return Promise.resolve(loaded.get(key));
+  const p = VOICES[key];
   if (p.kind === 'synth') {
     const voice = buildSynth(p, Tone.getDestination());
-    instruments.set(key, voice);
+    loaded.set(key, voice);
     return Promise.resolve(voice);
   }
   return new Promise((resolve, reject) => {
-    const voice = buildSampler(p, reverb, () => { instruments.set(key, voice); resolve(voice); }, reject);
+    const voice = buildSampler(p, reverb, () => { loaded.set(key, voice); resolve(voice); }, reject);
   });
 }
 
 // Switching the piano never interrupts playback: the new sound loads in the background and
 // takes over from the next note on; notes already sounding finish on the old one.
-async function selectPiano(key) {
-  pianoKey = key;
-  if (!instrument) { samplerReady = false; setBusy(false); }
-  setStatus(instruments.has(key) || PIANOS[key].kind === 'synth' ? '' : `Loading ${PIANOS[key].label}...`);
+async function selectVoice(key) {
+  voiceKey = key;
+  if (!instrument) { voiceReady = false; setBusy(false); }
+  setStatus(loaded.has(key) || VOICES[key].kind === 'synth' ? '' : `Loading ${VOICES[key].label}...`);
   try {
     const s = await loadInstrument(key);
-    if (pianoKey !== key) return; // the user moved on to another piano meanwhile
+    if (voiceKey !== key) return; // the user moved on to another voice meanwhile
     instrument = s;
-    samplerReady = true;
+    voiceReady = true;
     setStatus('');
     if (!piece) generate(); else if (!rendering) setBusy(false);
   } catch (e) {
-    setStatus(`Could not load ${PIANOS[key].label}: ${e}`);
+    setStatus(`Could not load ${VOICES[key].label}: ${e}`);
   }
 }
-els.piano.addEventListener('change', () => selectPiano(els.piano.value));
-selectPiano(pianoKey);
+els.voice.addEventListener('change', () => selectVoice(els.voice.value));
+selectVoice(voiceKey);
 
 function setStatus(text) { els.status.textContent = text; els.status.hidden = !text; }
 function setBusy(busy) {
   rendering = busy;
   for (const b of [els.wav, els.mp3, els.midi]) b.disabled = busy || !piece;
-  els.play.disabled = busy || !piece || !samplerReady;
+  els.play.disabled = busy || !piece || !voiceReady;
 }
 
 // ---------------------------------------------------------------------------
@@ -278,7 +278,7 @@ function noteEvents() {
     let endPulse = n.time + n.duration;
     // The pedal holds the accompaniment until the harmony changes, which is what stops broken
     // chords sounding like a music box. It lifts just before the new chord so nothing smears.
-    if (n.hand === 'left' && n.pedal !== false && spans.length && PIANOS[pianoKey].pedal !== false) {
+    if (n.hand === 'left' && n.pedal !== false && spans.length && VOICES[voiceKey].pedal !== false) {
       const k = spanIndexAt(n.time);
       if (spans[k].pcs.includes(((n.pitch % 12) + 12) % 12)) {
         const boundary = spans[k + 1] ? spans[k + 1].t - 0.05 : piece.totalBeats;
@@ -288,7 +288,7 @@ function noteEvents() {
     const held = endPulse > n.time + n.duration + 1e-6;
     return { time: t, dur: Math.max(0.05, timeMap.toSeconds(endPulse) - t), pitch: n.pitch, vel: n.velocity, hand: n.hand, held, pedal: n.pedal !== false };
   });
-  return PIANOS[pianoKey].mono ? monophonic(out) : out;
+  return VOICES[voiceKey].mono ? monophonic(out) : out;
 }
 
 // A one-channel machine plays one note at a time: keep the highest note of every onset, which is
@@ -324,7 +324,7 @@ function releaseFor(e) {
 // Playback
 
 async function play() {
-  if (!piece || !samplerReady || rendering) return;
+  if (!piece || !voiceReady || rendering) return;
   await Tone.start();
   part = new Tone.Part((time, e) => {
     const vel = gainFor(e);
@@ -453,7 +453,7 @@ function saveBlob(blob, name) {
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
-function fileBase() { const extra = (melodySeed !== null ? `-m${piece.melodySeed}` : '') + (leftSeed !== null ? `-l${piece.leftSeed}` : ''); return `${piece.style}-${piece.root}-${piece.mode}-seed${piece.seed}${extra}-${pianoKey}`; }
+function fileBase() { const extra = (melodySeed !== null ? `-m${piece.melodySeed}` : '') + (leftSeed !== null ? `-l${piece.leftSeed}` : ''); return `${piece.style}-${piece.root}-${piece.mode}-seed${piece.seed}${extra}-${voiceKey}`; }
 
 function downloadMidi() {
   if (!piece) return;
@@ -463,7 +463,7 @@ function downloadMidi() {
 // Renders the piece offline with the same sampler and reverb as live playback.
 async function renderAudio() {
   const events = noteEvents();
-  const p = PIANOS[pianoKey];
+  const p = VOICES[voiceKey];
   const buffer = await Tone.Offline(async ({ transport, destination }) => {
     let voice;
     if (p.kind === 'synth') {
@@ -523,7 +523,7 @@ function encodeMp3(buffer) {
 }
 
 async function downloadAudio(format) {
-  if (!piece || !samplerReady || rendering) return;
+  if (!piece || !voiceReady || rendering) return;
   stop();
   setBusy(true);
   setStatus(`Rendering ${format.toUpperCase()}...`);
@@ -540,4 +540,4 @@ async function downloadAudio(format) {
 }
 
 // Test hook for headless checks (not used by the page itself).
-window.__pianoTest = { renderAudio, encodeWav, encodeMp3, selectPiano, get piece() { return piece; }, get ready() { return samplerReady; } };
+window.__pianoTest = { renderAudio, encodeWav, encodeMp3, selectVoice, get piece() { return piece; }, get ready() { return voiceReady; } };
