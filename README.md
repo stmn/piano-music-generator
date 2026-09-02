@@ -42,9 +42,11 @@ ES modules do not load from `file://`, hence the server. Sound: Salamander piano
 to move the playhead (Space plays and stops); the left and right hand have separate volume sliders, and
 "Left articulation" scales the left-hand note lengths (staccato below 100%, more pedal above), live and
 in every export.
-Nine piano sounds: Salamander grand (Tone.js) and eight General MIDI soundfont instruments from the
-midi-js-soundfonts collection (concert, bright, warm and soft grands, electric grand, honky-tonk, electric
-piano, harpsichord), loaded on demand and levelled to a similar loudness. Download as MIDI, WAV or MP3 (audio is rendered offline in the browser with the same piano and reverb;
+Twelve voices: the Salamander grand (Tone.js), eight General MIDI soundfont instruments from the
+midi-js-soundfonts collection (concert, bright, warm and soft grands, electric grand, honky-tonk,
+electric piano, harpsichord), and three chiptune voices (4-bit, 8-bit, 16-bit) played by oscillators
+rather than samples, dry and without a pedal, because that is what those machines were. All loaded on
+demand and levelled to the same loudness. Download as MIDI, WAV or MP3 (audio is rendered offline in the browser with the same piano and reverb;
 MP3 via lamejs).
 
 ## Styles
@@ -119,7 +121,7 @@ their textures are drawn independently. On top of that:
 - `app.js`, `index.html` - interface, playback, piano roll
 - `composer.test.mjs` - musical invariants over many seeds and a diversity check
 - `docs/` - the screenshot used above
-- `tools/build-itch.sh` - packs the four runtime files into the zip itch.io expects
+- `tools/build-itch.sh` - packs the four runtime files into `dist/`, as the zip itch.io expects
 
 ## Credits
 

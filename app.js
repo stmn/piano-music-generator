@@ -68,10 +68,24 @@ const PIANOS = {
   honkytonk: { label: 'Honky-tonk', config: soundfont('MusyngKite/honkytonk_piano'), gain: 3.3 },
   rhodes: { label: 'Electric piano', config: soundfont('MusyngKite/electric_piano_1'), gain: 1.9 },
   harpsichord: { label: 'Harpsichord', config: soundfont('MusyngKite/harpsichord', 0.3), gain: 4 },
+  // Chiptune voices: oscillators rather than samples, so the piece keeps its notes but changes era.
+  // They play dry, because a pedal and a room are exactly what these machines did not have.
+  chip4: {
+    label: 'Chiptune 4-bit', kind: 'synth', gain: 0.27, bits: 4, pedal: false,
+    synth: { oscillator: { type: 'square' }, envelope: { attack: 0.001, decay: 0.06, sustain: 0.22, release: 0.05 } },
+  },
+  chip8: {
+    label: 'Chiptune 8-bit', kind: 'synth', gain: 0.11, bits: 8, pedal: false,
+    synth: { oscillator: { type: 'pulse', width: 0.32 }, envelope: { attack: 0.002, decay: 0.16, sustain: 0.4, release: 0.09 } },
+  },
+  chip16: {
+    label: 'Chiptune 16-bit', kind: 'synth', gain: 0.22, bits: 12, pedal: false,
+    synth: { oscillator: { type: 'fatsquare', count: 2, spread: 12 }, envelope: { attack: 0.004, decay: 0.3, sustain: 0.5, release: 0.25 } },
+  },
 };
 for (const [key, p] of Object.entries(PIANOS)) els.piano.add(new Option(p.label, key));
 let pianoKey = 'salamander';
-const samplers = new Map(); // piano key -> loaded Tone.Sampler
+const instruments = new Map(); // piano key -> a loaded voice
 
 // ---------------------------------------------------------------------------
 // Controls
@@ -137,18 +151,37 @@ els.roll.addEventListener('click', (e) => {
 });
 
 const reverb = new Tone.Reverb({ decay: 2.4, wet: 0.16 }).toDestination();
-let sampler = null;
+let instrument = null;
 
-function loadSampler(key) {
-  if (samplers.has(key)) return Promise.resolve(samplers.get(key));
+// Both kinds of voice expose the same trigger(), so playback and the offline render never have to
+// know whether they are driving a sampler or an oscillator.
+function buildSynth(p, destination) {
+  const out = new Tone.Volume(Tone.gainToDb(p.gain));
+  let head = out;
+  if (p.bits) { const crusher = new Tone.BitCrusher(p.bits); crusher.connect(out); head = crusher; }
+  const synth = new Tone.PolySynth(Tone.Synth, p.synth);
+  synth.connect(head);
+  out.connect(destination);
+  return { trigger: (freq, dur, time, vel) => synth.triggerAttackRelease(freq, dur, time, vel) };
+}
+
+function buildSampler(p, destination, onReady, onError) {
+  const s = new Tone.Sampler({ ...p.config, onload: () => onReady && onReady(), onerror: (e) => onError && onError(e) });
+  s.volume.value = Tone.gainToDb(p.gain);
+  s.connect(destination);
+  return { trigger: (freq, dur, time, vel, release) => { s.release = release; s.triggerAttackRelease(freq, dur, time, vel); } };
+}
+
+function loadInstrument(key) {
+  if (instruments.has(key)) return Promise.resolve(instruments.get(key));
+  const p = PIANOS[key];
+  if (p.kind === 'synth') {
+    const voice = buildSynth(p, Tone.getDestination());
+    instruments.set(key, voice);
+    return Promise.resolve(voice);
+  }
   return new Promise((resolve, reject) => {
-    const s = new Tone.Sampler({
-      ...PIANOS[key].config,
-      onload: () => { samplers.set(key, s); resolve(s); },
-      onerror: (e) => reject(e),
-    });
-    s.volume.value = Tone.gainToDb(PIANOS[key].gain);
-    s.connect(reverb);
+    const voice = buildSampler(p, reverb, () => { instruments.set(key, voice); resolve(voice); }, reject);
   });
 }
 
@@ -156,12 +189,12 @@ function loadSampler(key) {
 // takes over from the next note on; notes already sounding finish on the old one.
 async function selectPiano(key) {
   pianoKey = key;
-  if (!sampler) { samplerReady = false; setBusy(false); }
-  setStatus(samplers.has(key) ? '' : `Loading ${PIANOS[key].label}...`);
+  if (!instrument) { samplerReady = false; setBusy(false); }
+  setStatus(instruments.has(key) || PIANOS[key].kind === 'synth' ? '' : `Loading ${PIANOS[key].label}...`);
   try {
-    const s = await loadSampler(key);
+    const s = await loadInstrument(key);
     if (pianoKey !== key) return; // the user moved on to another piano meanwhile
-    sampler = s;
+    instrument = s;
     samplerReady = true;
     setStatus('');
     if (!piece) generate(); else if (!rendering) setBusy(false);
@@ -226,7 +259,7 @@ function noteEvents() {
     let endPulse = n.time + n.duration;
     // The pedal holds the accompaniment until the harmony changes, which is what stops broken
     // chords sounding like a music box. It lifts just before the new chord so nothing smears.
-    if (n.hand === 'left' && n.pedal !== false && spans.length) {
+    if (n.hand === 'left' && n.pedal !== false && spans.length && PIANOS[pianoKey].pedal !== false) {
       const k = spanIndexAt(n.time);
       if (spans[k].pcs.includes(((n.pitch % 12) + 12) % 12)) {
         const boundary = spans[k + 1] ? spans[k + 1].t - 0.05 : piece.totalBeats;
@@ -255,7 +288,7 @@ async function play() {
   await Tone.start();
   part = new Tone.Part((time, e) => {
     const vel = gainFor(e);
-    if (vel > 0.01) { sampler.release = releaseFor(e); sampler.triggerAttackRelease(Tone.Frequency(e.pitch, 'midi'), e.dur, time, vel); }
+    if (vel > 0.01) instrument.trigger(Tone.Frequency(e.pitch, 'midi'), e.dur, time, vel, releaseFor(e));
   }, noteEvents()).start(0);
   Tone.Transport.stop();
   Tone.Transport.seconds = seekSeconds;
@@ -390,16 +423,20 @@ function downloadMidi() {
 // Renders the piece offline with the same sampler and reverb as live playback.
 async function renderAudio() {
   const events = noteEvents();
-  const buffer = await Tone.Offline(async ({ transport }) => {
-    const s = new Tone.Sampler(PIANOS[pianoKey].config);
-    s.volume.value = Tone.gainToDb(PIANOS[pianoKey].gain);
-    const rev = new Tone.Reverb({ decay: 2.4, wet: 0.16 }).toDestination();
-    s.connect(rev);
-    await Tone.loaded();
-    await rev.ready;
+  const p = PIANOS[pianoKey];
+  const buffer = await Tone.Offline(async ({ transport, destination }) => {
+    let voice;
+    if (p.kind === 'synth') {
+      voice = buildSynth(p, destination);
+    } else {
+      const rev = new Tone.Reverb({ decay: 2.4, wet: 0.16 }).connect(destination);
+      voice = buildSampler(p, rev);
+      await Tone.loaded();
+      await rev.ready;
+    }
     new Tone.Part((time, e) => {
       const vel = gainFor(e);
-      if (vel > 0.01) { s.release = releaseFor(e); s.triggerAttackRelease(Tone.Frequency(e.pitch, 'midi'), e.dur, time, vel); }
+      if (vel > 0.01) voice.trigger(Tone.Frequency(e.pitch, 'midi'), e.dur, time, vel, releaseFor(e));
     }, events).start(0);
     transport.start(0);
   }, timeMap.totalSeconds + 1.5, 2, 44100);

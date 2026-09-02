@@ -1,3 +1,2 @@
 .DS_Store
-itch/
-docs/*.zip
+dist/
