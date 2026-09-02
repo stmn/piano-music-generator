@@ -57,33 +57,49 @@ function soundfont(path, release = 1) {
   }
   return { urls, release, baseUrl: `https://gleitz.github.io/midi-js-soundfonts/${path}-mp3/` };
 }
-// `gain` levels the sounds to a similar loudness (measured as RMS on the same piece).
+// `gain` levels the voices to the same loudness (measured as RMS on the same piece).
 const PIANOS = {
-  salamander: { label: 'Salamander grand', config: SALAMANDER, gain: 1 },
-  concert: { label: 'Concert grand', config: soundfont('MusyngKite/acoustic_grand_piano'), gain: 4.6 },
-  bright: { label: 'Bright grand', config: soundfont('MusyngKite/bright_acoustic_piano'), gain: 3.7 },
-  warm: { label: 'Warm grand', config: soundfont('FluidR3_GM/acoustic_grand_piano'), gain: 3.3 },
-  soft: { label: 'Soft grand', config: soundfont('FatBoy/acoustic_grand_piano'), gain: 4.2 },
-  electricGrand: { label: 'Electric grand', config: soundfont('MusyngKite/electric_grand_piano'), gain: 3.6 },
-  honkytonk: { label: 'Honky-tonk', config: soundfont('MusyngKite/honkytonk_piano'), gain: 3.3 },
-  rhodes: { label: 'Electric piano', config: soundfont('MusyngKite/electric_piano_1'), gain: 1.9 },
-  harpsichord: { label: 'Harpsichord', config: soundfont('MusyngKite/harpsichord', 0.3), gain: 4 },
-  // Chiptune voices: oscillators rather than samples, so the piece keeps its notes but changes era.
-  // They play dry, because a pedal and a room are exactly what these machines did not have.
-  chip4: {
-    label: 'Chiptune 4-bit', kind: 'synth', gain: 0.27, bits: 4, pedal: false,
-    synth: { oscillator: { type: 'square' }, envelope: { attack: 0.001, decay: 0.06, sustain: 0.22, release: 0.05 } },
+  salamander: { group: 'Pianos', label: 'Salamander grand', config: SALAMANDER, gain: 1 },
+  concert: { group: 'Pianos', label: 'Concert grand', config: soundfont('MusyngKite/acoustic_grand_piano'), gain: 4.6 },
+  bright: { group: 'Pianos', label: 'Bright grand', config: soundfont('MusyngKite/bright_acoustic_piano'), gain: 3.7 },
+  warm: { group: 'Pianos', label: 'Warm grand', config: soundfont('FluidR3_GM/acoustic_grand_piano'), gain: 3.3 },
+  soft: { group: 'Pianos', label: 'Soft grand', config: soundfont('FatBoy/acoustic_grand_piano'), gain: 4.2 },
+  electricGrand: { group: 'Pianos', label: 'Electric grand', config: soundfont('MusyngKite/electric_grand_piano'), gain: 3.6 },
+  honkytonk: { group: 'Pianos', label: 'Honky-tonk', config: soundfont('MusyngKite/honkytonk_piano'), gain: 3.3 },
+  rhodes: { group: 'Pianos', label: 'Electric piano', config: soundfont('MusyngKite/electric_piano_1'), gain: 1.9 },
+  harpsichord: { group: 'Pianos', label: 'Harpsichord', config: soundfont('MusyngKite/harpsichord', 0.3), gain: 4 },
+
+  musicBox: { group: 'Other instruments', label: 'Music box', config: soundfont('MusyngKite/music_box'), gain: 4.7 },
+  vibraphone: { group: 'Other instruments', label: 'Vibraphone', config: soundfont('MusyngKite/vibraphone'), gain: 2.7 },
+  harp: { group: 'Other instruments', label: 'Harp', config: soundfont('MusyngKite/orchestral_harp'), gain: 4.1 },
+  guitar: { group: 'Other instruments', label: 'Nylon guitar', config: soundfont('MusyngKite/acoustic_guitar_nylon'), gain: 4.2 },
+  organ: { group: 'Other instruments', label: 'Church organ', config: soundfont('MusyngKite/church_organ', 0.6), gain: 1.6 },
+
+  // Chiptune voices: oscillators rather than samples, so a piece keeps its notes and changes era.
+  // What separates them is the waveform and how many notes a machine could hold at once, not bit
+  // depth: a square wave has two levels already, so crushing it to four bits changes almost nothing.
+  // They play dry and without a pedal, because that is what those machines were.
+  chip1: {
+    group: 'Chiptune', label: '1-bit square', kind: 'synth', gain: 0.17, pedal: false, mono: true,
+    synth: { oscillator: { type: 'square' }, envelope: { attack: 0.001, decay: 0.04, sustain: 0.9, release: 0.02 } },
   },
   chip8: {
-    label: 'Chiptune 8-bit', kind: 'synth', gain: 0.11, bits: 8, pedal: false,
-    synth: { oscillator: { type: 'pulse', width: 0.32 }, envelope: { attack: 0.002, decay: 0.16, sustain: 0.4, release: 0.09 } },
+    group: 'Chiptune', label: '8-bit console', kind: 'synth', gain: 0.15, pedal: false,
+    synth: { oscillator: { type: 'pulse', width: 0.12 }, envelope: { attack: 0.002, decay: 0.1, sustain: 0.35, release: 0.06 } },
+    synthLeft: { oscillator: { type: 'triangle' }, envelope: { attack: 0.002, decay: 0.2, sustain: 0.6, release: 0.08 } },
   },
   chip16: {
-    label: 'Chiptune 16-bit', kind: 'synth', gain: 0.22, bits: 12, pedal: false,
-    synth: { oscillator: { type: 'fatsquare', count: 2, spread: 12 }, envelope: { attack: 0.004, decay: 0.3, sustain: 0.5, release: 0.25 } },
+    group: 'Chiptune', label: '16-bit console', kind: 'synth', gain: 0.27, pedal: false, filter: 2600,
+    synth: { oscillator: { type: 'fatsawtooth', count: 2, spread: 18 }, envelope: { attack: 0.006, decay: 0.35, sustain: 0.55, release: 0.3 } },
+    synthLeft: { oscillator: { type: 'fatsquare', count: 2, spread: 10 }, envelope: { attack: 0.006, decay: 0.4, sustain: 0.5, release: 0.35 } },
   },
 };
-for (const [key, p] of Object.entries(PIANOS)) els.piano.add(new Option(p.label, key));
+for (const [key, p] of Object.entries(PIANOS)) {
+  const name = p.group ?? 'Pianos';
+  let group = [...els.piano.children].find((g) => g.label === name);
+  if (!group) { group = document.createElement('optgroup'); group.label = name; els.piano.appendChild(group); }
+  group.appendChild(new Option(p.label, key));
+}
 let pianoKey = 'salamander';
 const instruments = new Map(); // piano key -> a loaded voice
 
@@ -159,10 +175,13 @@ function buildSynth(p, destination) {
   const out = new Tone.Volume(Tone.gainToDb(p.gain));
   let head = out;
   if (p.bits) { const crusher = new Tone.BitCrusher(p.bits); crusher.connect(out); head = crusher; }
-  const synth = new Tone.PolySynth(Tone.Synth, p.synth);
-  synth.connect(head);
+  if (p.filter) { const f = new Tone.Filter(p.filter, 'lowpass'); f.connect(head); head = f; }
+  // Monophonic voices steal each other's note, which is exactly what a one-channel machine did.
+  const make = (opts) => { const s = p.mono ? new Tone.Synth(opts) : new Tone.PolySynth(Tone.Synth, opts); s.connect(head); return s; };
+  const right = make(p.synth);
+  const left = p.mono ? right : p.synthLeft ? make(p.synthLeft) : right;
   out.connect(destination);
-  return { trigger: (freq, dur, time, vel) => synth.triggerAttackRelease(freq, dur, time, vel) };
+  return { trigger: (freq, dur, time, vel, release, hand) => (hand === 'left' ? left : right).triggerAttackRelease(freq, dur, time, vel) };
 }
 
 function buildSampler(p, destination, onReady, onError) {
@@ -254,7 +273,7 @@ function noteEvents() {
     return i;
   };
   const notes = articulated();
-  return notes.map((n, i) => {
+  const out = notes.map((n, i) => {
     const t = Math.max(0, timeMap.toSeconds(n.time) + (offsets[i] ?? 0));
     let endPulse = n.time + n.duration;
     // The pedal holds the accompaniment until the harmony changes, which is what stops broken
@@ -268,6 +287,27 @@ function noteEvents() {
     }
     const held = endPulse > n.time + n.duration + 1e-6;
     return { time: t, dur: Math.max(0.05, timeMap.toSeconds(endPulse) - t), pitch: n.pitch, vel: n.velocity, hand: n.hand, held, pedal: n.pedal !== false };
+  });
+  return PIANOS[pianoKey].mono ? monophonic(out) : out;
+}
+
+// A one-channel machine plays one note at a time: keep the highest note of every onset, which is
+// almost always the melody, and cut it where the next one begins.
+function monophonic(events) {
+  const top = new Map();
+  for (const e of events) {
+    const k = e.time.toFixed(4);
+    const cur = top.get(k);
+    if (!cur || e.pitch > cur.pitch) top.set(k, e);
+  }
+  // Notes closer together than a machine could retrigger are dropped, not squeezed: a note whose
+  // release would land after the next attack puts the envelope out of order.
+  const line = [...top.values()].sort((a, b) => a.time - b.time);
+  const kept = [];
+  for (const e of line) if (!kept.length || e.time - kept[kept.length - 1].time >= 0.012) kept.push({ ...e });
+  return kept.map((e, i) => {
+    const next = kept[i + 1];
+    return next ? { ...e, dur: Math.max(0.006, Math.min(e.dur, next.time - e.time - 0.005)) } : e;
   });
 }
 
@@ -288,7 +328,7 @@ async function play() {
   await Tone.start();
   part = new Tone.Part((time, e) => {
     const vel = gainFor(e);
-    if (vel > 0.01) instrument.trigger(Tone.Frequency(e.pitch, 'midi'), e.dur, time, vel, releaseFor(e));
+    if (vel > 0.01) instrument.trigger(Tone.Frequency(e.pitch, 'midi'), e.dur, time, vel, releaseFor(e), e.hand);
   }, noteEvents()).start(0);
   Tone.Transport.stop();
   Tone.Transport.seconds = seekSeconds;
@@ -436,7 +476,7 @@ async function renderAudio() {
     }
     new Tone.Part((time, e) => {
       const vel = gainFor(e);
-      if (vel > 0.01) voice.trigger(Tone.Frequency(e.pitch, 'midi'), e.dur, time, vel, releaseFor(e));
+      if (vel > 0.01) voice.trigger(Tone.Frequency(e.pitch, 'midi'), e.dur, time, vel, releaseFor(e), e.hand);
     }, events).start(0);
     transport.start(0);
   }, timeMap.totalSeconds + 1.5, 2, 44100);

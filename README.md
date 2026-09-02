@@ -42,11 +42,15 @@ ES modules do not load from `file://`, hence the server. Sound: Salamander piano
 to move the playhead (Space plays and stops); the left and right hand have separate volume sliders, and
 "Left articulation" scales the left-hand note lengths (staccato below 100%, more pedal above), live and
 in every export.
-Twelve voices: the Salamander grand (Tone.js), eight General MIDI soundfont instruments from the
-midi-js-soundfonts collection (concert, bright, warm and soft grands, electric grand, honky-tonk,
-electric piano, harpsichord), and three chiptune voices (4-bit, 8-bit, 16-bit) played by oscillators
-rather than samples, dry and without a pedal, because that is what those machines were. All loaded on
-demand and levelled to the same loudness. Download as MIDI, WAV or MP3 (audio is rendered offline in the browser with the same piano and reverb;
+Seventeen voices in three groups. **Pianos**: the Salamander grand (Tone.js) and eight General MIDI
+soundfont instruments from the midi-js-soundfonts collection. **Other instruments**: music box,
+vibraphone, harp, nylon guitar, church organ. **Chiptune**: three synthesised voices that differ by
+waveform and channel count rather than by bit depth, because a square wave has two levels already:
+*1-bit square* is monophonic, so only the top note of each moment survives, the way a one-channel
+machine played; *8-bit console* gives the melody a narrow pulse and the left hand a triangle, two
+timbres at once; *16-bit console* is a pair of detuned oscillators through a filter, fuller and
+warmer. The chiptune voices play dry and without a pedal. Everything is loaded on demand and levelled
+to the same loudness. Download as MIDI, WAV or MP3 (audio is rendered offline in the browser with the same piano and reverb;
 MP3 via lamejs).
 
 ## Styles
