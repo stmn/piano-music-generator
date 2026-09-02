@@ -5,7 +5,7 @@ import { createRequire } from 'node:module';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { generatePiece } from '../composer.js';
+import { generatePiece, makeTimeMap, performNotes } from '../composer.js';
 
 const require = createRequire(import.meta.url);
 const puppeteer = require(process.env.PUPPETEER ?? 'puppeteer');
@@ -104,6 +104,119 @@ ${roll({ x0: -60, y0: 30, w: 2220, h: 840, from: 4, bars: 24, low: 34, high: 86,
 <text x="200" y="172" font-family="${F}" font-size="80" font-weight="600" fill="#ffffff" letter-spacing="-1.5">Piano Music <tspan fill="${C.accent}">Generator</tspan></text></g></svg>`;
 }
 
+{ // How a piece is built, one layer at a time, on four real bars of the real piece.
+  const BARS = 4;
+  let win = null;
+  for (let bar = 1; bar + BARS < piece.totalBars - 3; bar++) {
+    const from = bar * piece.beats, to = from + BARS * piece.beats;
+    const ns = piece.notes.filter((n) => n.time >= from && n.time < to);
+    const right = ns.filter((n) => n.hand === 'right').length;
+    const score = Math.min(right, ns.length - right) + ns.length * 0.1;
+    if (!win || score > win.score) win = { score, from, to, bar };
+  }
+  const { from, to } = win;
+  const LOW = 36, HIGH = 84;
+  const W = 1240, LEFT = 268, RIGHT = 40, rowH = 132, gapY = 30, top = 158;
+  const pxIn = (a, b) => (t) => LEFT + ((t - a) / (b - a)) * (W - LEFT - RIGHT);
+  const px = pxIn(from, to);
+  const rowPy = (y0) => (p) => y0 + rowH - 6 - ((p - LOW) / (HIGH - LOW)) * (rowH - 12);
+
+  const chordsIn = piece.chords.filter((c) => { const t = c.bar * piece.beats + (c.start ?? 0); return t >= from - 1e-6 && t < to; });
+  const chordAt = (t) => { let cur = chordsIn[0]; for (const c of chordsIn) if (c.bar * piece.beats + (c.start ?? 0) <= t + 1e-6) cur = c; return cur; };
+  const notesIn = piece.notes.filter((n) => n.time >= from && n.time < to && n.pitch >= LOW && n.pitch <= HIGH);
+  const offsets = performNotes(piece);
+  const offsetOf = new Map(piece.notes.map((n, i) => [n, offsets[i]]));
+  const secToPulse = piece.tempo / 60;
+
+  const grid = (y0, alpha) => {
+    const py = rowPy(y0);
+    const out = [];
+    chordsIn.forEach((c, i) => {
+      const t0 = c.bar * piece.beats + (c.start ?? 0);
+      const next = chordsIn[i + 1];
+      const t1 = next ? next.bar * piece.beats + (next.start ?? 0) : to;
+      for (let p = LOW; p <= HIGH; p++) {
+        if (!(c.pcs ?? []).includes(((p % 12) + 12) % 12)) continue;
+        out.push(`<rect x="${px(t0).toFixed(1)}" y="${py(p).toFixed(1)}" width="${(px(t1) - px(t0) - 3).toFixed(1)}" height="2" fill="${C.accent}" opacity="${alpha}"/>`);
+      }
+    });
+    return out.join('');
+  };
+  const barLines = (y0) => {
+    const out = [];
+    for (let b = Math.ceil(from / piece.beats); b * piece.beats <= to; b++) out.push(`<line x1="${px(b * piece.beats).toFixed(1)}" y1="${y0}" x2="${px(b * piece.beats).toFixed(1)}" y2="${y0 + rowH}" stroke="${C.line}" stroke-width="1"/>`);
+    return out.join('');
+  };
+  const draw = (y0, ns, { perform = false, dim = 1 } = {}) => {
+    const py = rowPy(y0);
+    return ns.map((n) => {
+      const shift = perform ? (offsetOf.get(n) ?? 0) * secToPulse : 0;
+      const x = px(n.time + shift);
+      const w = Math.max(3, px(n.time + shift + Math.min(n.duration, to - n.time)) - x - 1.5);
+      const op = perform ? (0.3 + n.velocity * 0.7) : 0.85;
+      return `<rect x="${x.toFixed(1)}" y="${py(n.pitch).toFixed(1)}" width="${w.toFixed(1)}" height="4" rx="2" fill="${n.hand === 'right' ? C.right : C.left}" opacity="${(op * dim).toFixed(2)}"/>`;
+    }).join('');
+  };
+
+  const rows = [
+    ['Harmony and form', 'The rules lay out the chords: which notes exist in each bar, and where the phrase must cadence.',
+      (y) => grid(y, 0.5) + chordsIn.map((c) => `<text x="${px(c.bar * piece.beats + (c.start ?? 0)) + 5}" y="${y - 7}" font-family="${F}" font-size="13" fill="${C.accent}">${c.chord}</text>`).join('')],
+    ['The melody skeleton', 'On every strong beat the melody takes a note of the chord under it. This is the frame it is sung on.',
+      (y) => grid(y, 0.18) + draw(y, notesIn.filter((n) => n.hand === 'right' && n.strong !== false && !n.ornament && piece.notes.indexOf(n) >= 0 && (chordAt(n.time).pcs ?? []).includes(n.pitch % 12)))],
+    ['The melody', 'Between those notes come passing and neighbour notes, a returning motif, one climax, an upbeat, a trill at the cadence.',
+      (y) => grid(y, 0.1) + draw(y, notesIn.filter((n) => n.hand === 'right'))],
+    ['The left hand', 'A figuration drawn per section fills the same chords: broken, block, bass and chord, octaves. It thins out where the melody is busy.',
+      (y) => draw(y, notesIn)],
+    ['The performance', 'The first bar magnified. Pale outlines are the written notes, solid bars where they are played.',
+      (y) => {
+        const b0 = from, b1 = from + piece.beats;
+        const zx = pxIn(b0, b1);
+        const py = rowPy(y);
+        const bar = notesIn.filter((n) => n.time >= b0 && n.time < b1);
+        const lines = [];
+        for (let k = 0; k <= piece.beats; k++) lines.push(`<line x1="${zx(b0 + k).toFixed(1)}" y1="${y}" x2="${zx(b0 + k).toFixed(1)}" y2="${y + rowH}" stroke="${C.line}" stroke-width="1"/>`);
+        const written = bar.map((n) => {
+          const x = zx(n.time), w = Math.max(4, zx(n.time + Math.min(n.duration, b1 - n.time)) - x - 2);
+          return `<rect x="${x.toFixed(1)}" y="${py(n.pitch).toFixed(1)}" width="${w.toFixed(1)}" height="5" rx="2.5" fill="none" stroke="${C.muted}" stroke-width="1" opacity="0.5"/>`;
+        }).join('');
+        const played = bar.map((n) => {
+          const shift = (offsetOf.get(n) ?? 0) * secToPulse;
+          const x = zx(n.time + shift), w = Math.max(4, zx(n.time + shift + Math.min(n.duration, b1 - n.time)) - x - 2);
+          return `<rect x="${x.toFixed(1)}" y="${py(n.pitch).toFixed(1)}" width="${w.toFixed(1)}" height="5" rx="2.5" fill="${n.hand === 'right' ? C.right : C.left}" opacity="${(0.3 + n.velocity * 0.7).toFixed(2)}"/>`;
+        }).join('');
+        return lines.join('') + written + played;
+      }],
+  ];
+
+  const H = top + rows.length * (rowH + gapY) + 44;
+  const body = rows.map(([title, note, render], i) => {
+    const y = top + i * (rowH + gapY);
+    return `<rect x="${LEFT - 12}" y="${y}" width="${W - LEFT - RIGHT + 24}" height="${rowH}" rx="10" fill="${C.panel}"/>
+${barLines(y)}${render(y)}
+<circle cx="44" cy="${y + 26}" r="13" fill="${C.accent}"/>
+<text x="44" y="${y + 31}" font-family="${F}" font-size="15" font-weight="600" fill="#271700" text-anchor="middle">${i + 1}</text>
+<text x="70" y="${y + 31}" font-family="${F}" font-size="19" font-weight="600" fill="${C.text}">${title}</text>
+${wrap(note, 30).map((line, k) => `<text x="44" y="${y + 58 + k * 19}" font-family="${F}" font-size="13.5" fill="${C.muted}">${line}</text>`).join('')}`;
+  }).join('');
+
+  svgs.process = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+<rect width="${W}" height="${H}" fill="${C.bg}"/>
+<text x="44" y="58" font-family="${F}" font-size="30" font-weight="600" fill="${C.text}">How a piece is built</text>
+<text x="44" y="92" font-family="${F}" font-size="17" fill="${C.muted}">Four real bars of one piece, layer by layer. No trained model: every layer is a rule plus the seed.</text>
+<text x="44" y="${H - 16}" font-family="${F}" font-size="13" fill="${C.muted}">gold: the chord tones available &#183; blue: right hand &#183; green: left hand &#183; every layer is drawn from one real piece</text>
+${body}</svg>`;
+}
+
+function wrap(text, max) {
+  const words = text.split(' '), lines = [];
+  let line = '';
+  for (const w of words) {
+    if ((line + ' ' + w).trim().length > max) { lines.push(line.trim()); line = w; } else line += ' ' + w;
+  }
+  if (line.trim()) lines.push(line.trim());
+  return lines;
+}
+
 const browser = await puppeteer.launch({ headless: true, args: ['--autoplay-policy=no-user-gesture-required'] });
 for (const [name, svg] of Object.entries(svgs)) {
   const [, w, h] = svg.match(/width="(\d+)" height="(\d+)"/);
@@ -111,9 +224,11 @@ for (const [name, svg] of Object.entries(svgs)) {
   await page.setViewport({ width: +w, height: +h, deviceScaleFactor: 1 });
   const transparent = name === 'logo';
   await page.setContent(`<style>html,body{margin:0;background:${transparent ? 'transparent' : C.bg}}</style>${svg}`);
-  await page.screenshot({ path: join(PROMO, `${name}.png`), omitBackground: transparent });
+  // The process diagram is a README asset; the rest is the store set.
+  const dir = name === 'process' ? join(ROOT, 'docs') : PROMO;
+  await page.screenshot({ path: join(dir, `${name}.png`), omitBackground: transparent });
   await page.close();
-  console.log(`dist/promo/${name}.png  ${w}x${h}`);
+  console.log(`${name === 'process' ? 'docs' : 'dist/promo'}/${name}.png  ${w}x${h}`);
 }
 
 // The README screenshot: the running app inside a window frame.
