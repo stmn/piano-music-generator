@@ -104,7 +104,7 @@ ${roll({ x0: -60, y0: 30, w: 2220, h: 840, from: 4, bars: 24, low: 34, high: 86,
 <text x="200" y="172" font-family="${F}" font-size="80" font-weight="600" fill="#ffffff" letter-spacing="-1.5">Piano Music <tspan fill="${C.accent}">Generator</tspan></text></g></svg>`;
 }
 
-{ // How a piece is built, one layer at a time, on four real bars of the real piece.
+{ // How a piece is built: the whole form first, then four real bars of it, layer by layer.
   const BARS = 4;
   let win = null;
   for (let bar = 1; bar + BARS < piece.totalBars - 3; bar++) {
@@ -117,48 +117,79 @@ ${roll({ x0: -60, y0: 30, w: 2220, h: 840, from: 4, bars: 24, low: 34, high: 86,
   const { from, to } = win;
 
   // Drawn to sit on the itch.io page: its background is the ground, so there are no panels and
-  // nothing is inset. The four bars stay in the same columns down the whole graphic; every row
-  // scales to its own pitches so each layer fills its band.
-  const W = 1240, LEFT = 250, rowH = 186, gapY = 42, top = 152;
+  // nothing is inset. Every row says something the row above it does not.
+  const W = 1240, LEFT = 250, gapY = 44, top = 118;
+  const heights = [126, 176, 176, 176];
   const pxIn = (a, b) => (t) => LEFT + ((t - a) / (b - a)) * (W - LEFT);
   const px = pxIn(from, to);
+  const ZOOM = piece.beats / 2; // the last row magnifies half a bar
 
   const chordsIn = piece.chords.filter((c) => { const t = c.bar * piece.beats + (c.start ?? 0); return t >= from - 1e-6 && t < to; });
   const chordAt = (t) => { let cur = chordsIn[0]; for (const c of chordsIn) if (c.bar * piece.beats + (c.start ?? 0) <= t + 1e-6) cur = c; return cur; };
   const notesIn = piece.notes.filter((n) => n.time >= from && n.time < to);
   const melody = notesIn.filter((n) => n.hand === 'right');
-  const left = notesIn.filter((n) => n.hand === 'left');
   const offsets = performNotes(piece);
   const offsetOf = new Map(piece.notes.map((n, i) => [n, offsets[i]]));
   const secToPulse = piece.tempo / 60;
 
+  // The performance figures are measured, not asserted.
+  const byOnset = new Map();
+  piece.notes.forEach((n, i) => {
+    const k = n.time.toFixed(3);
+    if (!byOnset.has(k)) byOnset.set(k, []);
+    byOnset.get(k).push([n, offsets[i]]);
+  });
+  const leads = [];
+  for (const v of byOnset.values()) {
+    const r = v.filter(([n]) => n.hand === 'right'), l = v.filter(([n]) => n.hand === 'left');
+    if (r.length && l.length) leads.push((l.reduce((a, [, o]) => a + o, 0) / l.length - r.reduce((a, [, o]) => a + o, 0) / r.length) * 1000);
+  }
+  const lead = Math.round(leads.reduce((a, b) => a + b, 0) / Math.max(1, leads.length));
+  const maxShift = Math.round(Math.max(...offsets.map(Math.abs)) * 1000);
+
   const range = (ns, pad = 1) => [Math.min(...ns.map((n) => n.pitch)) - pad, Math.max(...ns.map((n) => n.pitch)) + pad];
   const scale = (y0, [lo, hi], h, inset = 6) => (p) => y0 + h - inset - ((p - lo) / (hi - lo)) * (h - inset * 2);
 
-  // Bars are told apart by a breath of light on every other one, not by rules.
-  const stripes = (y0, step = piece.beats) => {
+  const stripes = (y0, h, step) => {
     const out = [];
     for (let t = from, i = 0; t < to - 1e-6; t += step, i++) {
       if (i % 2) continue;
-      const x = px(t), x1 = px(t + step);
-      out.push(`<rect x="${x.toFixed(1)}" y="${y0}" width="${(x1 - x).toFixed(1)}" height="${rowH}" fill="#ffffff" opacity="0.02"/>`);
+      out.push(`<rect x="${px(t).toFixed(1)}" y="${y0}" width="${(px(t + step) - px(t)).toFixed(1)}" height="${h}" fill="#ffffff" opacity="0.02"/>`);
     }
     return out.join('');
   };
 
-  const bars = (ns, py, { h = 7, at = (n) => n.time, color = (n) => (n.hand === 'right' ? C.right : C.left), fill = true } = {}) =>
-    ns.map((n) => {
-      const x = px(at(n)), w = Math.max(h, px(at(n) + Math.min(n.duration, to - n.time)) - x - 2);
-      const c = color(n);
-      return fill
-        ? `<rect x="${x.toFixed(1)}" y="${(py(n.pitch) - h / 2).toFixed(1)}" width="${w.toFixed(1)}" height="${h}" rx="${h / 2}" fill="${c}" opacity="${(0.45 + n.velocity * 0.55).toFixed(2)}"/>`
-        : `<rect x="${x.toFixed(1)}" y="${(py(n.pitch) - h / 2).toFixed(1)}" width="${w.toFixed(1)}" height="${h}" rx="${h / 2}" fill="none" stroke="${c}" stroke-width="1.5" opacity="0.5"/>`;
-    }).join('');
+  const bars = (ns, py, h = 7) => ns.map((n) => {
+    const x = px(n.time), w = Math.max(h, px(n.time + Math.min(n.duration, to - n.time)) - x - 2);
+    return `<rect x="${x.toFixed(1)}" y="${(py(n.pitch) - h / 2).toFixed(1)}" width="${w.toFixed(1)}" height="${h}" rx="${h / 2}" fill="${n.hand === 'right' ? C.right : C.left}" opacity="${(0.45 + n.velocity * 0.55).toFixed(2)}"/>`;
+  }).join('');
 
   const rows = [
-    ['Harmony and form', 'Rules choose the chords, bar by bar, and where the phrase has to land.', (y) => {
+    ['Form', 'A whole piece first: sections, a varied reprise, a coda. Gold marks the four bars the rest of this picture zooms into.', (y, h) => {
+      const fx = (b) => LEFT + (b / piece.totalBars) * (W - LEFT);
+      const [lo, hi] = range(piece.notes, 1);
+      const rollTop = y + 20, rollH = h - 52;
+      const py = scale(rollTop, [lo, hi], rollH, 2);
+      const out = [];
+      (piece.sections ?? []).forEach((s, i) => {
+        const end = piece.sections[i + 1]?.bar ?? piece.totalBars;
+        if (i % 2 === 0) out.push(`<rect x="${fx(s.bar).toFixed(1)}" y="${rollTop}" width="${(fx(end) - fx(s.bar)).toFixed(1)}" height="${rollH}" fill="#ffffff" opacity="0.022"/>`);
+        const lx = Math.min(fx(s.bar) + 5, W - s.name.length * 8 - 2);
+        out.push(`<text x="${lx.toFixed(1)}" y="${y + 12}" font-family="${F}" font-size="13" font-weight="600" fill="${C.text}">${s.name}</text>`);
+      });
+      for (const n of piece.notes) {
+        const x = fx(n.time / piece.beats), w = Math.max(1.6, fx((n.time + n.duration) / piece.beats) - x - 0.4);
+        out.push(`<rect x="${x.toFixed(1)}" y="${(py(n.pitch) - 1.1).toFixed(1)}" width="${w.toFixed(1)}" height="2.2" rx="1.1" fill="${n.hand === 'right' ? C.right : C.left}" opacity="0.75"/>`);
+      }
+      const wx = fx(from / piece.beats), wx1 = fx(to / piece.beats);
+      out.push(`<rect x="${wx.toFixed(1)}" y="${rollTop}" width="${(wx1 - wx).toFixed(1)}" height="${rollH}" fill="${C.accent}" opacity="0.1"/>`);
+      out.push(`<rect x="${wx.toFixed(1)}" y="${(rollTop + rollH + 7).toFixed(1)}" width="${(wx1 - wx).toFixed(1)}" height="3" rx="1.5" fill="${C.accent}"/>`);
+      out.push(`<text x="${Math.min(wx, W - 190).toFixed(1)}" y="${(rollTop + rollH + 27).toFixed(1)}" font-family="${F}" font-size="13" fill="${C.accent}">bars ${win.bar + 1}-${win.bar + BARS}, below</text>`);
+      return out.join('');
+    }],
+    ['Harmony', 'Rules choose the chords bar by bar, and where the phrase has to land. The brighter gold is the root of each chord.', (y, h) => {
       const [lo, hi] = range(melody, 2);
-      const py = scale(y, [lo - 12, hi], rowH);
+      const py = scale(y, [lo - 12, hi], h);
       const out = [];
       chordsIn.forEach((c, i) => {
         const t0 = c.bar * piece.beats + (c.start ?? 0);
@@ -168,44 +199,45 @@ ${roll({ x0: -60, y0: 30, w: 2220, h: 840, from: 4, bars: 24, low: 34, high: 86,
         for (let p = Math.ceil(lo - 12); p <= hi; p++) {
           const pc = ((p % 12) + 12) % 12;
           if (!(c.pcs ?? []).includes(pc)) continue;
-          const strong = pc === root;
-          out.push(`<rect x="${(px(t0) + 4).toFixed(1)}" y="${(py(p) - 2.5).toFixed(1)}" width="${(px(t1) - px(t0) - 10).toFixed(1)}" height="5" rx="2.5" fill="${C.accent}" opacity="${strong ? 0.72 : 0.3}"/>`);
+          out.push(`<rect x="${(px(t0) + 4).toFixed(1)}" y="${(py(p) - 2.5).toFixed(1)}" width="${(px(t1) - px(t0) - 10).toFixed(1)}" height="5" rx="2.5" fill="${C.accent}" opacity="${pc === root ? 0.72 : 0.3}"/>`);
         }
       });
       return out.join('');
     }],
-    ['The melody', 'It lands on a chord tone at every strong beat (gold rings) and fills the gaps in between.', (y) => {
-      const py = scale(y, range(melody, 1), rowH);
-      const pts = [...melody].sort((a, b) => a.time - b.time)
-        .map((n) => `${(px(n.time) + 3).toFixed(1)},${py(n.pitch).toFixed(1)}`).join(' ');
-      const skeleton = melody.filter((n) => n.strong !== false && !n.ornament && (chordAt(n.time).pcs ?? []).includes(n.pitch % 12))
+    ['Both hands, one chord', 'There is no second idea underneath: the melody takes a chord tone on every strong beat (gold rings) and steps between them, the left hand spreads the same notes below it.', (y, h) => {
+      const py = scale(y, range(notesIn, 1), h);
+      const rings = melody.filter((n) => n.strong !== false && !n.ornament && (chordAt(n.time).pcs ?? []).includes(n.pitch % 12))
         .map((n) => `<circle cx="${px(n.time).toFixed(1)}" cy="${py(n.pitch).toFixed(1)}" r="6.5" fill="none" stroke="${C.accent}" stroke-width="1.6" opacity="0.85"/>`).join('');
-      return `<polyline points="${pts}" fill="none" stroke="${C.right}" stroke-width="1.5" opacity="0.28" stroke-linejoin="round" stroke-linecap="round"/>${skeleton}${bars(melody, py)}`;
+      return rings + bars(notesIn, py);
     }],
-    ['The left hand', 'One figuration per section spreads the same chords under it.', (y) => {
-      const py = scale(y, range(left, 1), rowH);
-      return bars(left, py);
-    }],
-    ['The performance', 'Then it is played: notes lean, spread and breathe. Outlines are what was written.', (y) => {
-      const b0 = from, b1 = from + piece.beats;
+    ['Performance', `Nothing is quantised: the melody arrives about ${lead} ms ahead of the left hand, single notes move up to ${maxShift} ms, and the last two bars slow by up to 40%.`, (y, h) => {
+      const b0 = from, b1 = from + ZOOM;
       const zx = pxIn(b0, b1);
       const bar = notesIn.filter((n) => n.time >= b0 && n.time < b1);
-      const py = scale(y, range(bar, 1), rowH);
-      const shape = (n, shift, solid) => {
-        const x = zx(n.time + shift), w = Math.max(9, zx(n.time + shift + Math.min(n.duration, b1 - n.time)) - x - 3);
-        const c = n.hand === 'right' ? C.right : C.left;
-        return solid
-          ? `<rect x="${x.toFixed(1)}" y="${(py(n.pitch) - 4.5).toFixed(1)}" width="${w.toFixed(1)}" height="9" rx="4.5" fill="${c}" opacity="${(0.45 + n.velocity * 0.55).toFixed(2)}"/>`
-          : `<rect x="${x.toFixed(1)}" y="${(py(n.pitch) - 4.5).toFixed(1)}" width="${w.toFixed(1)}" height="9" rx="4.5" fill="none" stroke="${C.muted}" stroke-width="1.4" opacity="0.45"/>`;
-      };
-      return bar.map((n) => shape(n, 0, false)).join('') + bar.map((n) => shape(n, (offsetOf.get(n) ?? 0) * secToPulse, true)).join('');
+      const py = scale(y, range(bar, 1), h);
+      const out = [];
+      for (const n of bar) {
+        const x0 = zx(n.time), x1 = zx(n.time + (offsetOf.get(n) ?? 0) * secToPulse), cy = py(n.pitch);
+        if (Math.abs(x1 - x0) > 1.5) out.push(`<line x1="${x0.toFixed(1)}" y1="${cy.toFixed(1)}" x2="${x1.toFixed(1)}" y2="${cy.toFixed(1)}" stroke="${C.muted}" stroke-width="1" opacity="0.4"/>`);
+        out.push(`<circle cx="${x0.toFixed(1)}" cy="${cy.toFixed(1)}" r="4.5" fill="none" stroke="${C.muted}" stroke-width="1.3" opacity="0.55"/>`);
+        out.push(`<circle cx="${x1.toFixed(1)}" cy="${cy.toFixed(1)}" r="4.5" fill="${n.hand === 'right' ? C.right : C.left}" opacity="${(0.5 + n.velocity * 0.5).toFixed(2)}"/>`);
+      }
+      out.push(`<text x="${W - 310}" y="${y + 16}" font-family="${F}" font-size="13" fill="${C.muted}">half a bar, magnified</text>`);
+      out.push(`<circle cx="${W - 186}" cy="${y + 11}" r="4.5" fill="none" stroke="${C.muted}" stroke-width="1.3" opacity="0.6"/><text x="${W - 174}" y="${y + 16}" font-family="${F}" font-size="13" fill="${C.muted}">written</text>`);
+      out.push(`<circle cx="${W - 100}" cy="${y + 11}" r="4.5" fill="${C.right}"/><text x="${W - 88}" y="${y + 16}" font-family="${F}" font-size="13" fill="${C.muted}">played</text>`);
+      return out.join('');
     }],
   ];
 
-  const H = top + rows.length * (rowH + gapY) - gapY + 40;
+  const rowY = [];
+  let cursor = top;
+  for (const h of heights) { rowY.push(cursor); cursor += h + gapY; }
+  const H = cursor - gapY + 40;
+
   const body = rows.map(([title, note, render], i) => {
-    const y = top + i * (rowH + gapY);
-    return `${stripes(y, i === rows.length - 1 ? (to - from) / piece.beats : piece.beats)}${render(y)}
+    const y = rowY[i], h = heights[i];
+    const back = i === 0 ? '' : stripes(y, h, i === rows.length - 1 ? (to - from) / ZOOM : piece.beats);
+    return `${back}${render(y, h)}
 <text x="0" y="${y + 24}" font-family="${F}" font-size="21" font-weight="600" fill="${C.text}"><tspan fill="${C.accent}">${i + 1}</tspan><tspan dx="13">${title}</tspan></text>
 ${wrap(note, 30).map((line, k) => `<text x="0" y="${y + 55 + k * 22}" font-family="${F}" font-size="14.5" fill="${C.muted}">${line}</text>`).join('')}`;
   }).join('');
@@ -213,9 +245,9 @@ ${wrap(note, 30).map((line, k) => `<text x="0" y="${y + 55 + k * 22}" font-famil
   svgs.process = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
 <rect width="${W}" height="${H}" fill="${C.panel}"/>
 <text x="0" y="30" font-family="${F}" font-size="32" font-weight="600" fill="${C.accent}">How a piece is built</text>
-<text x="0" y="62" font-family="${F}" font-size="16" fill="${C.muted}">Four real bars of one piece, layer by layer. No trained model: every layer is a rule plus the seed.</text>
-${chordsIn.map((c) => `<text x="${(px(c.bar * piece.beats + (c.start ?? 0)) + 6).toFixed(1)}" y="${top - 16}" font-family="${F}" font-size="17" font-weight="600" fill="${C.accent}">${c.chord}</text>`).join('')}
-<text x="0" y="${H - 8}" font-family="${F}" font-size="14" fill="${C.muted}">gold: the chords &#183; blue: right hand &#183; green: left hand &#183; every layer is drawn from one real piece</text>
+<text x="0" y="62" font-family="${F}" font-size="16" fill="${C.muted}">One real piece, drawn from its own output. No trained model: every layer is a rule plus the seed.</text>
+${chordsIn.map((c) => `<text x="${(px(c.bar * piece.beats + (c.start ?? 0)) + 6).toFixed(1)}" y="${rowY[1] - 12}" font-family="${F}" font-size="17" font-weight="600" fill="${C.accent}">${c.chord}</text>`).join('')}
+<text x="0" y="${H - 8}" font-family="${F}" font-size="14" fill="${C.muted}">gold: the chords &#183; blue: right hand &#183; green: left hand &#183; Nocturne in ${piece.root} ${piece.mode}, seed ${piece.seed}</text>
 ${body}</svg>`;
 }
 
