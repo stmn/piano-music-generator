@@ -57,14 +57,6 @@ The style names describe the surface the generator reproduces (meter, tempo, acc
 a bias on the melody), not the full historical idiom. A "Chorale" here is a slow melody over block
 chords, not four-part Bach harmony.
 
-## Editing (hidden for now)
-
-The piano roll can be edited, but the "Edit" button is hidden in `index.html` (remove the `hidden`
-attribute on `#editMode` to bring it back). In edit mode the mouse wheel zooms both axes around the
-cursor, dragging empty space pans, dragging a note moves it, its right edge changes its length,
-double-click adds a note, Delete removes the selected one, arrow keys nudge it and Cmd/Ctrl+Z undoes.
-Edits go into MIDI, WAV and MP3.
-
 ## Re-rolling one hand
 
 Three random streams feed a piece: the main seed decides form and harmony, a melody seed the right

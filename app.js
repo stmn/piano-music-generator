@@ -7,7 +7,7 @@ const els = {
   seed: $('seed'), randomSeed: $('randomSeed'), newLeft: $('newLeft'), newMelody: $('newMelody'), play: $('play'),
   midi: $('midi'), wav: $('wav'), mp3: $('mp3'), status: $('status'), title: $('title'), desc: $('desc'), roll: $('roll'), piano: $('piano'),
   volRight: $('volRight'), volRightVal: $('volRightVal'), volLeft: $('volLeft'), volLeftVal: $('volLeftVal'),
-  editMode: $('editMode'), rollwrap: $('rollwrap'), art: $('art'), artVal: $('artVal'),
+  art: $('art'), artVal: $('artVal'),
   details: $('details'), detailsModal: $('detailsModal'), detailsClose: $('detailsClose'),
 };
 
@@ -26,14 +26,6 @@ let seekSeconds = 0; // playhead position while stopped
 // Per-hand seeds: they follow the main seed until one hand is re-rolled on its own.
 let melodySeed = null;
 let leftSeed = null;
-// Editing state.
-let zoom = 1;
-let editing = false;
-let pan = null; // { startX, startScroll, moved }
-let selected = null; // a note object from piece.notes
-let undoStack = []; // snapshots of piece.notes before each edit
-let drag = null; // { mode: 'move'|'resize', note, startBeat, startPitch, orig }
-const GRID = 0.25; // pulses
 
 // Piano sounds. Salamander is hosted by Tone.js; the others come from the midi-js-soundfonts
 // collection (General MIDI soundfonts rendered to one mp3 per key), loaded every third semitone.
@@ -124,196 +116,19 @@ window.addEventListener('keydown', (e) => {
   if (els.detailsModal.open) return;
   if (e.code === 'Space' && !['INPUT', 'SELECT', 'BUTTON'].includes(document.activeElement.tagName)) { e.preventDefault(); if (!els.play.disabled) (playing ? stop() : play()); }
 });
-// ---------------------------------------------------------------------------
-// Editing: zoom, selection, drag, resize, add, delete, undo.
-
-// Edit mode: on, the roll can be zoomed (wheel, like a map) and notes can be moved, resized,
-// added (double-click) and deleted; off, the roll only moves the playhead.
-function setEditing(on) {
-  editing = on;
-  els.editMode.classList.toggle('on', on);
-  els.editMode.textContent = on ? 'Done' : 'Edit';
-  els.rollwrap.classList.toggle('editing', on);
-  selected = null;
-  drag = null; pan = null;
-  if (!on) setZoom(1, 0, 0);
-  draw(playing ? Tone.Transport.seconds : seekSeconds);
-}
-els.editMode.addEventListener('click', () => setEditing(!editing));
-
-// Zoom both axes, keeping the point under the cursor in place (like a map).
-const ROLL_HEIGHT = 420;
-function setZoom(next, clientX, clientY) {
-  next = Math.max(1, Math.min(16, next));
-  const wrap = els.rollwrap;
-  const rect = wrap.getBoundingClientRect();
-  const ox = clientX - rect.left, oy = clientY - rect.top; // anchor on screen
-  const fx = (wrap.scrollLeft + ox) / els.roll.clientWidth; // anchor as a fraction of the canvas
-  const fy = (wrap.scrollTop + oy) / els.roll.clientHeight;
-  zoom = next;
-  els.roll.style.width = (zoom * 100) + '%';
-  els.roll.style.height = Math.round(ROLL_HEIGHT * zoom) + 'px';
-  draw(playing ? Tone.Transport.seconds : seekSeconds);
-  wrap.scrollLeft = Math.max(0, fx * els.roll.clientWidth - ox);
-  wrap.scrollTop = Math.max(0, fy * els.roll.clientHeight - oy);
-}
-els.rollwrap.addEventListener('wheel', (e) => {
-  if (!editing || !piece) return;
-  if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return; // native scrolling
-  e.preventDefault();
-  setZoom(zoom * Math.exp(-e.deltaY * 0.0025), e.clientX, e.clientY);
-}, { passive: false });
-
-function geometry() {
-  const W = els.roll.clientWidth, H = els.roll.clientHeight;
-  const padL = 8, padR = 8, padT = 26, padB = 24;
-  const low = 24, high = 90;
-  const pxBeat = (W - padL - padR) / piece.totalBeats;
-  const pxNote = (H - padT - padB) / (high - low + 1);
-  return {
-    W, H, padL, padR, padT, padB, low, high, pxBeat, pxNote,
-    x: (beat) => padL + beat * pxBeat, y: (pitch) => padT + (high - pitch) * pxNote,
-    beatAt: (px) => (px - padL) / pxBeat, pitchAt: (py) => Math.round(high - (py - padT) / pxNote),
-  };
-}
-function pointer(e) { const r = els.roll.getBoundingClientRect(); return { px: e.clientX - r.left, py: e.clientY - r.top }; }
-function hitTest(px, py) {
-  const g = geometry();
-  for (let i = piece.notes.length - 1; i >= 0; i--) {
-    const n = piece.notes[i];
-    const x0 = g.x(n.time), x1 = x0 + Math.max(4, n.duration * g.pxBeat), y0 = g.y(n.pitch), y1 = y0 + Math.max(3, g.pxNote);
-    if (px >= x0 - 1 && px <= x1 + 1 && py >= y0 - 1 && py <= y1 + 1) return { note: n, resize: px > x1 - 6 && n.duration * g.pxBeat > 10 };
-  }
-  return null;
-}
-function snapshot() { undoStack.push(piece.notes.map((n) => ({ ...n }))); if (undoStack.length > 100) undoStack.shift(); markEdited(); }
-function markEdited() { piece.edited = true; updateTitle(); }
-function audition(note) {
-  if (!samplerReady || playing) return;
-  Tone.start();
-  sampler.triggerAttackRelease(Tone.Frequency(note.pitch, 'midi'), Math.min(0.6, note.duration * 60 / piece.tempo), undefined, Math.min(1, note.velocity * gain[note.hand]));
-}
-
 // The details panel: opened from one link, closed by Escape, the close link or a click outside.
 els.details.addEventListener('click', () => els.detailsModal.showModal());
 els.detailsClose.addEventListener('click', () => els.detailsModal.close());
 els.detailsModal.addEventListener('click', (e) => { if (e.target === els.detailsModal) els.detailsModal.close(); });
 
-els.roll.addEventListener('mousedown', (e) => {
-  if (!piece || e.button !== 0) return;
-  const { px, py } = pointer(e);
-  const hit = editing ? hitTest(px, py) : null;
-  if (hit) {
-    if (playing) stop();
-    selected = hit.note;
-    const g = geometry();
-    drag = { mode: hit.resize ? 'resize' : 'move', note: hit.note, startBeat: g.beatAt(px), startPitch: g.pitchAt(py), orig: { ...hit.note }, moved: false };
-    els.roll.classList.add('grab');
-    audition(hit.note);
-    draw(seekSeconds);
-    e.preventDefault();
-    return;
-  }
-  // Empty space: in edit mode a drag pans the zoomed roll and a plain click moves the playhead;
-  // outside edit mode a click moves the playhead right away.
-  selected = null;
-  if (editing && zoom > 1) { pan = { startX: e.clientX, startY: e.clientY, startScroll: els.rollwrap.scrollLeft, startScrollTop: els.rollwrap.scrollTop, moved: false, px }; e.preventDefault(); return; }
-  seekTo(px);
-});
-function seekTo(px) {
-  const g = geometry();
-  const beat = Math.max(0, Math.min(piece.totalBeats, g.beatAt(px)));
+// Clicking the piano roll moves the playhead.
+els.roll.addEventListener('click', (e) => {
+  if (!piece) return;
+  const rect = els.roll.getBoundingClientRect();
+  const beat = Math.max(0, Math.min(piece.totalBeats, (e.clientX - rect.left - 8) / ((els.roll.clientWidth - 16) / piece.totalBeats)));
   const sec = timeMap.toSeconds(beat);
   if (playing) Tone.Transport.seconds = sec; else { seekSeconds = sec; draw(sec); }
-}
-window.addEventListener('mousemove', (e) => {
-  if (pan) {
-    const dx = e.clientX - pan.startX, dy = e.clientY - pan.startY;
-    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) { pan.moved = true; els.roll.classList.add('grab'); }
-    if (pan.moved) { els.rollwrap.scrollLeft = pan.startScroll - dx; els.rollwrap.scrollTop = pan.startScrollTop - dy; }
-    return;
-  }
-  if (!drag) return;
-  const { px, py } = pointer(e);
-  const g = geometry();
-  const dBeat = Math.round((g.beatAt(px) - drag.startBeat) / GRID) * GRID;
-  if (drag.mode === 'move') {
-    const dPitch = g.pitchAt(py) - drag.startPitch;
-    const time = Math.max(0, Math.min(piece.totalBeats - drag.orig.duration, drag.orig.time + dBeat));
-    const pitch = Math.max(21, Math.min(108, drag.orig.pitch + dPitch));
-    if (time !== drag.note.time || pitch !== drag.note.pitch) {
-      if (!drag.moved) { drag.moved = true; snapshotBefore(drag.orig, drag.note); }
-      drag.note.time = time; drag.note.pitch = pitch;
-      draw(seekSeconds);
-    }
-  } else {
-    const duration = Math.max(GRID, Math.min(piece.totalBeats - drag.orig.time, drag.orig.duration + dBeat));
-    if (duration !== drag.note.duration) {
-      if (!drag.moved) { drag.moved = true; snapshotBefore(drag.orig, drag.note); }
-      drag.note.duration = duration;
-      draw(seekSeconds);
-    }
-  }
 });
-// The undo snapshot must hold the note as it was before the drag started.
-function snapshotBefore(orig, note) {
-  const current = { ...note };
-  Object.assign(note, orig);
-  snapshot();
-  Object.assign(note, current);
-}
-window.addEventListener('mouseup', () => {
-  if (pan) { if (!pan.moved) seekTo(pan.px); pan = null; els.roll.classList.remove('grab'); return; }
-  if (!drag) return;
-  if (drag.moved && drag.mode === 'move') audition(drag.note);
-  drag = null;
-  els.roll.classList.remove('grab');
-});
-els.roll.addEventListener('dblclick', (e) => {
-  if (!piece || !editing) return;
-  const { px, py } = pointer(e);
-  if (hitTest(px, py)) return;
-  const g = geometry();
-  const time = Math.max(0, Math.min(piece.totalBeats - GRID, Math.floor(g.beatAt(px) / GRID) * GRID));
-  const pitch = Math.max(21, Math.min(108, g.pitchAt(py)));
-  if (playing) stop();
-  snapshot();
-  const note = { time, duration: 1, pitch, velocity: 0.7, hand: pitch >= 60 ? 'right' : 'left', ornament: false };
-  piece.notes.push(note);
-  selected = note;
-  audition(note);
-  draw(seekSeconds);
-});
-window.addEventListener('keydown', (e) => {
-  const typing = ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName);
-  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !typing) { e.preventDefault(); undo(); return; }
-  if (!selected || typing || !editing) return;
-  if (e.key === 'Delete' || e.key === 'Backspace') {
-    e.preventDefault();
-    if (playing) stop();
-    snapshot();
-    piece.notes = piece.notes.filter((n) => n !== selected);
-    selected = null;
-    draw(seekSeconds);
-  } else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-    e.preventDefault();
-    if (playing) stop();
-    snapshot();
-    if (e.key === 'ArrowUp') selected.pitch = Math.min(108, selected.pitch + (e.shiftKey ? 12 : 1));
-    if (e.key === 'ArrowDown') selected.pitch = Math.max(21, selected.pitch - (e.shiftKey ? 12 : 1));
-    if (e.key === 'ArrowLeft') selected.time = Math.max(0, selected.time - GRID);
-    if (e.key === 'ArrowRight') selected.time = Math.min(piece.totalBeats - selected.duration, selected.time + GRID);
-    audition(selected);
-    draw(seekSeconds);
-  }
-});
-function undo() {
-  if (!undoStack.length) return;
-  if (playing) stop();
-  piece.notes = undoStack.pop();
-  selected = null;
-  draw(seekSeconds);
-}
 
 const reverb = new Tone.Reverb({ decay: 2.4, wet: 0.16 }).toDestination();
 let sampler = null;
@@ -372,8 +187,6 @@ function generate() {
   beatTable = [];
   for (let b = 0; b <= piece.totalBeats; b += 0.25) beatTable.push([b, timeMap.toSeconds(b)]);
   seekSeconds = 0;
-  selected = null; undoStack = []; drag = null; pan = null;
-  els.editMode.disabled = false;
   updateTitle();
   els.desc.textContent = piece.description;
   setBusy(false);
@@ -384,7 +197,7 @@ function updateTitle() {
   const len = Math.round(timeMap.totalSeconds);
   const mm = Math.floor(len / 60), ss = String(len % 60).padStart(2, '0');
   const seeds = [`seed ${piece.seed}`, melodySeed !== null && `melody ${piece.melodySeed}`, leftSeed !== null && `left hand ${piece.leftSeed}`].filter(Boolean).join(' · ');
-  els.title.innerHTML = `<strong>${STYLES[piece.style].label} in ${piece.root} ${piece.mode}</strong> <span class="meta">${seeds} · ${piece.totalBars} bars · ${piece.notes.length} notes · ${mm}:${ss}${piece.edited ? ' · edited' : ''}</span>`;
+  els.title.innerHTML = `<strong>${STYLES[piece.style].label} in ${piece.root} ${piece.mode}</strong> <span class="meta">${seeds} · ${piece.totalBars} bars · ${piece.notes.length} notes · ${mm}:${ss}</span>`;
 }
 
 // Note events with absolute seconds, for both live playback and offline rendering. Three things
@@ -533,22 +346,13 @@ function draw(sec) {
     ctx.fillRect(x(n.time), y(n.pitch), w, Math.max(2, pxNote - 1));
   }
   ctx.globalAlpha = 1;
-  if (selected && piece.notes.includes(selected)) {
-    ctx.strokeStyle = color('--accent');
-    ctx.lineWidth = 2;
-    ctx.strokeRect(x(selected.time) - 1, y(selected.pitch) - 1, Math.max(2, selected.duration * pxBeat - 1) + 2, Math.max(2, pxNote - 1) + 2);
-  }
 
-  // Playhead (the view follows it when zoomed in).
+  // Playhead.
   if (sec !== undefined && sec > 0) {
     const beat = secondsToBeat(sec);
     ctx.strokeStyle = color('--accent');
     ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(x(beat), padT - 4); ctx.lineTo(x(beat), H - padB + 4); ctx.stroke();
-    if (playing && zoom > 1) {
-      const wrap = els.rollwrap, px = x(beat);
-      if (px < wrap.scrollLeft + 40 || px > wrap.scrollLeft + wrap.clientWidth - 40) wrap.scrollLeft = Math.max(0, px - wrap.clientWidth / 3);
-    }
   }
 }
 
