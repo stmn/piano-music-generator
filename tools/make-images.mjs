@@ -116,7 +116,7 @@ ${roll({ x0: -60, y0: 30, w: 2220, h: 840, from: 4, bars: 24, low: 34, high: 86,
   }
   const { from, to } = win;
   const LOW = 36, HIGH = 84;
-  const W = 1240, LEFT = 268, RIGHT = 40, rowH = 132, gapY = 30, top = 158;
+  const W = 1240, LEFT = 268, RIGHT = 0, rowH = 132, gapY = 30, top = 158;
   const pxIn = (a, b) => (t) => LEFT + ((t - a) / (b - a)) * (W - LEFT - RIGHT);
   const px = pxIn(from, to);
   const rowPy = (y0) => (p) => y0 + rowH - 6 - ((p - LOW) / (HIGH - LOW)) * (rowH - 12);
@@ -191,7 +191,7 @@ ${roll({ x0: -60, y0: 30, w: 2220, h: 840, from: 4, bars: 24, low: 34, high: 86,
   const H = top + rows.length * (rowH + gapY) + 44;
   const body = rows.map(([title, note, render], i) => {
     const y = top + i * (rowH + gapY);
-    return `<rect x="${LEFT - 12}" y="${y}" width="${W - LEFT - RIGHT + 24}" height="${rowH}" rx="10" fill="${C.bg}"/>
+    return `<rect x="0" y="${y}" width="${W}" height="${rowH}" fill="${C.bg}"/>
 ${barLines(y)}${render(y)}
 <circle cx="44" cy="${y + 26}" r="13" fill="${C.accent}"/>
 <text x="44" y="${y + 31}" font-family="${F}" font-size="15" font-weight="600" fill="#271700" text-anchor="middle">${i + 1}</text>
@@ -201,7 +201,7 @@ ${wrap(note, 30).map((line, k) => `<text x="44" y="${y + 58 + k * 19}" font-fami
 
   svgs.process = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
 <rect width="${W}" height="${H}" fill="${C.panel}"/>
-<text x="44" y="58" font-family="${F}" font-size="30" font-weight="600" fill="${C.text}">How a piece is built</text>
+<text x="44" y="56" font-family="${F}" font-size="25" font-weight="600" fill="${C.accent}">How a piece is built</text>
 <text x="44" y="92" font-family="${F}" font-size="17" fill="${C.muted}">Four real bars of one piece, layer by layer. No trained model: every layer is a rule plus the seed.</text>
 <text x="44" y="${H - 16}" font-family="${F}" font-size="13" fill="${C.muted}">gold: the chord tones available &#183; blue: right hand &#183; green: left hand &#183; every layer is drawn from one real piece</text>
 ${body}</svg>`;
