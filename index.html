@@ -43,9 +43,14 @@
   select:focus-visible, input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   input[type=range] { width: 150px; height: 36px; margin: 0; accent-color: var(--accent); }
   .field.wide input[type=range] { width: 140px; }
+  /* Icons from Lucide (ISC licence, https://lucide.dev), inlined so nothing is fetched for them. */
+  .icon { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .field > span .icon { width: 14px; height: 14px; vertical-align: -2px; margin-right: 5px; color: var(--muted); }
+  .field > span.lbl { justify-content: flex-end; } /* icon and word stay together, no value to push right */
   button {
     height: 36px; padding: 0 14px; background: var(--field); color: var(--text); border: 0; border-radius: var(--radius);
-    font: inherit; font-weight: 500; cursor: pointer; transition: background-color 150ms var(--ease), transform 150ms var(--ease);
+    font: inherit; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    transition: background-color 150ms var(--ease), transform 150ms var(--ease);
   }
   button:hover:not(:disabled) { background: var(--field-hover); }
   button:active:not(:disabled) { transform: translateY(1px); }
@@ -80,6 +85,8 @@
     text-underline-offset: 3px; text-decoration-color: var(--line);
   }
   button.link:hover { background: none; color: var(--text); text-decoration-color: var(--muted); }
+  button.icon-only { padding: 4px; color: var(--muted); text-decoration: none; }
+  button.icon-only:hover { color: var(--accent); background: none; }
   button.link:active { transform: none; }
   dialog {
     max-width: 62ch; padding: 24px 26px 20px; border: 0; border-radius: 12px;
@@ -122,7 +129,7 @@
       <div class="field"><span>Seed</span>
         <div class="group">
           <input id="seed" type="number" min="1" max="999999999" value="65255" aria-label="Seed">
-          <button id="randomSeed" type="button">Random</button>
+          <button id="randomSeed" type="button"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.8-1.1 2-1.7 3.3-1.7H22"/><path d="m18 2 4 4-4 4"/><path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2"/><path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8"/><path d="m18 14 4 4-4 4"/></svg>Random</button>
         </div>
       </div>
       <div class="field"><span>Re-roll one hand, keep the other</span>
@@ -133,7 +140,7 @@
       </div>
     </div>
     <div class="row">
-      <button id="play" type="button" class="primary" disabled>Play</button>
+      <button id="play" type="button" class="primary" disabled><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3 20 12 6 21z" fill="currentColor" stroke-linejoin="round"/></svg>Play</button>
       <label class="field"><span>Piano</span>
         <select id="piano" style="min-width:140px"></select>
       </label>
@@ -146,7 +153,7 @@
       <label class="field"><span>Left articulation <b id="artVal"></b></span>
         <input id="art" type="range" min="25" max="120" step="5" value="100" style="width:120px">
       </label>
-      <div class="field push"><span>Download</span>
+      <div class="field push"><span class="lbl"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>Download</span>
         <div class="segmented">
           <button id="midi" type="button" disabled>MIDI</button>
           <button id="wav" type="button" disabled>WAV</button>
@@ -162,7 +169,7 @@
 
   <section class="about">
     <p id="title"></p>
-    <button id="details" class="link" type="button">details</button>
+    <button id="details" class="link icon-only" type="button" aria-label="Details" title="Details"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></button>
   </section>
 
   <dialog id="detailsModal" aria-label="Piece details">

@@ -121,6 +121,12 @@ their textures are drawn independently. On top of that:
 - `docs/` - the screenshot used above
 - `tools/build-itch.sh` - packs the four runtime files into the zip itch.io expects
 
+## Credits
+
+Piano samples: the Salamander grand hosted by Tone.js and General MIDI soundfonts from
+[midi-js-soundfonts](https://github.com/gleitz/midi-js-soundfonts). MP3 encoding: lamejs.
+Icons: [Lucide](https://lucide.dev) (ISC licence), inlined in `index.html` and `app.js`.
+
 ## Licence
 
 The code is MIT. Music the tool writes for you is yours; nothing in the generator is derived from
