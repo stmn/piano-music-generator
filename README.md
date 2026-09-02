@@ -1,6 +1,6 @@
 # Piano Music Generator
 
-**[Play it in your browser on itch.io](https://stmn.itch.io/piano-music-generator)**
+**[Try it in your browser on itch.io](https://stmn.itch.io/piano-music-generator)**
 
 A piano music generator that writes a whole classical piano piece from a single number, entirely in
 the browser. No trained model and no corpus of existing music: form, harmony and melodic contour come

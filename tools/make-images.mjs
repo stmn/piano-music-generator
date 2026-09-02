@@ -191,7 +191,7 @@ ${roll({ x0: -60, y0: 30, w: 2220, h: 840, from: 4, bars: 24, low: 34, high: 86,
   const H = top + rows.length * (rowH + gapY) + 44;
   const body = rows.map(([title, note, render], i) => {
     const y = top + i * (rowH + gapY);
-    return `<rect x="${LEFT - 12}" y="${y}" width="${W - LEFT - RIGHT + 24}" height="${rowH}" rx="10" fill="${C.panel}"/>
+    return `<rect x="${LEFT - 12}" y="${y}" width="${W - LEFT - RIGHT + 24}" height="${rowH}" rx="10" fill="${C.bg}"/>
 ${barLines(y)}${render(y)}
 <circle cx="44" cy="${y + 26}" r="13" fill="${C.accent}"/>
 <text x="44" y="${y + 31}" font-family="${F}" font-size="15" font-weight="600" fill="#271700" text-anchor="middle">${i + 1}</text>
@@ -200,7 +200,7 @@ ${wrap(note, 30).map((line, k) => `<text x="44" y="${y + 58 + k * 19}" font-fami
   }).join('');
 
   svgs.process = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
-<rect width="${W}" height="${H}" fill="${C.bg}"/>
+<rect width="${W}" height="${H}" fill="${C.panel}"/>
 <text x="44" y="58" font-family="${F}" font-size="30" font-weight="600" fill="${C.text}">How a piece is built</text>
 <text x="44" y="92" font-family="${F}" font-size="17" fill="${C.muted}">Four real bars of one piece, layer by layer. No trained model: every layer is a rule plus the seed.</text>
 <text x="44" y="${H - 16}" font-family="${F}" font-size="13" fill="${C.muted}">gold: the chord tones available &#183; blue: right hand &#183; green: left hand &#183; every layer is drawn from one real piece</text>
@@ -223,7 +223,7 @@ for (const [name, svg] of Object.entries(svgs)) {
   const page = await browser.newPage();
   await page.setViewport({ width: +w, height: +h, deviceScaleFactor: 1 });
   const transparent = name === 'logo';
-  await page.setContent(`<style>html,body{margin:0;background:${transparent ? 'transparent' : C.bg}}</style>${svg}`);
+  await page.setContent(`<style>html,body{margin:0;background:${transparent ? 'transparent' : name === 'process' ? C.panel : C.bg}}</style>${svg}`);
   // The process diagram is a README asset; the rest is the store set.
   const dir = name === 'process' ? join(ROOT, 'docs') : PROMO;
   await page.screenshot({ path: join(dir, `${name}.png`), omitBackground: transparent });
