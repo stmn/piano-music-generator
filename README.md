@@ -11,7 +11,7 @@ The same seed always writes the same piece.
 
 ![Piano Song Creator](docs/screenshot.png)
 
-## What it does badly
+## Why it's not perfect
 
 This is a rule-based generator, not a composer. Worth knowing before you decide what it is for:
 
