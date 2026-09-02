@@ -70,10 +70,10 @@
   #roll { display: block; width: 100%; height: 420px; background: var(--panel); border-radius: 12px; cursor: pointer; }
 
   /* The page ends on the title line; the rest sits behind the details link. */
-  .about { display: flex; flex-direction: column; gap: 8px; max-width: 75ch; color: var(--muted); font-size: 13px; }
+  .about { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; color: var(--muted); font-size: 13px; }
   .about #title { margin: 0; font-size: 15px; color: var(--text); }
   .about #title .meta { color: var(--muted); font-size: 13px; margin-left: 8px; font-variant-numeric: tabular-nums; }
-  .about { flex-direction: row; align-items: center; gap: 7px; }
+  #seeds { margin: 0 0 10px; color: var(--text); font-variant-numeric: tabular-nums; }
   #desc { margin: 0 0 16px; text-wrap: pretty; color: var(--muted); }
   .legend { display: flex; flex-wrap: wrap; gap: 16px; }
   .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
@@ -174,6 +174,7 @@
   </section>
 
   <dialog id="detailsModal" aria-label="Piece details">
+    <p id="seeds"></p>
     <p id="desc"></p>
     <div class="legend">
       <span><i style="background:var(--left)"></i>left hand (accompaniment)</span>

@@ -11,7 +11,7 @@ const $ = (id) => document.getElementById(id);
 const els = {
   style: $('style'), root: $('root'), mode: $('mode'), tempo: $('tempo'), tempoVal: $('tempoVal'),
   seed: $('seed'), randomSeed: $('randomSeed'), newLeft: $('newLeft'), newMelody: $('newMelody'), play: $('play'),
-  midi: $('midi'), wav: $('wav'), mp3: $('mp3'), status: $('status'), title: $('title'), desc: $('desc'), roll: $('roll'), voice: $('voice'),
+  midi: $('midi'), wav: $('wav'), mp3: $('mp3'), status: $('status'), title: $('title'), desc: $('desc'), seeds: $('seeds'), roll: $('roll'), voice: $('voice'),
   volRight: $('volRight'), volRightVal: $('volRightVal'), volLeft: $('volLeft'), volLeftVal: $('volLeftVal'),
   art: $('art'), artVal: $('artVal'),
   details: $('details'), detailsModal: $('detailsModal'), detailsClose: $('detailsClose'),
@@ -254,8 +254,11 @@ function generate() {
 function updateTitle() {
   const len = Math.round(timeMap.totalSeconds);
   const mm = Math.floor(len / 60), ss = String(len % 60).padStart(2, '0');
-  const seeds = [`seed ${piece.seed}`, melodySeed !== null && `melody ${piece.melodySeed}`, leftSeed !== null && `left hand ${piece.leftSeed}`].filter(Boolean).join(' · ');
-  els.title.innerHTML = `<strong>${STYLES[piece.style].label} in ${piece.root} ${piece.mode}</strong> <span class="meta">${seeds} · ${piece.totalBars} bars · ${piece.notes.length} notes · ${mm}:${ss}</span>`;
+  // The headline stays one short line whatever happens; the re-rolled hands are named in the
+  // details panel, which is where you go when you want to reproduce a piece.
+  els.title.innerHTML = `<strong>${STYLES[piece.style].label} in ${piece.root} ${piece.mode}</strong> <span class="meta">seed ${piece.seed} · ${piece.totalBars} bars · ${piece.notes.length} notes · ${mm}:${ss}</span>`;
+  const extra = [melodySeed !== null && `melody ${piece.melodySeed}`, leftSeed !== null && `left hand ${piece.leftSeed}`].filter(Boolean);
+  els.seeds.textContent = `Seed ${piece.seed}${extra.length ? `, re-rolled: ${extra.join(', ')}` : ''}`;
 }
 
 // Note events with absolute seconds, for both live playback and offline rendering. Three things
