@@ -7,10 +7,31 @@ the browser. No trained model and no corpus of existing music: form, harmony and
 from rules, everything else from a seeded random generator. The style sets meter, tempo, accompaniment
 preferences and a bias on the melodic character. Export as MIDI, WAV or MP3.
 
-The same seed always writes the same piece. What the generator does badly is written down honestly in
-[`itch/description.md`](itch/description.md); read that before deciding what this is for.
+The same seed always writes the same piece.
 
 ![Sixteen styles](itch/styles.png)
+
+## What it does badly
+
+This is a rule-based generator, not a composer. Worth knowing before you decide what it is for:
+
+- **Nothing it writes is memorable.** A piece is coherent, it goes somewhere and it ends properly,
+  but it has no idea worth humming. That is the part rules cannot do.
+- **The harmony is a textbook.** Diatonic chords, a few secondary dominants, at most one modulation
+  and only to the relative key. Nothing surprising ever happens harmonically.
+- **Phrases are always four bars.** Every piece breathes in the same regular squares: no irregular
+  phrase, no elision, no interruption.
+- **Style names describe a surface, not an idiom.** A Chorale here is a slow melody over block
+  chords, not four-part Bach harmony. Blues is the one style whose defining features are actually
+  implemented.
+- **Some seeds are dull.** It is a lottery with good odds, not a guarantee.
+- **One velocity layer.** Soft and loud notes differ in level but not in timbre, because the piano is
+  a sampler, not a physical model.
+- **The pedal is simulated per chord change,** not decided by ear, so busy passages can blur.
+- **It needs the internet on first load** to fetch the piano samples.
+
+If you want background music you can generate forever, or raw MIDI to take into a DAW, it does that
+well. If you want a piece that sounds composed by a person, it does not.
 
 ## Run locally
 
