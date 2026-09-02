@@ -1,15 +1,15 @@
-# Piano Song Creator
+# Piano Music Generator
 
 **[Play it in your browser on itch.io](https://stmn.itch.io/piano-song-creator)**
 
-A piano song generator that writes a whole classical piano piece from a single number, entirely in
+A piano music generator that writes a whole classical piano piece from a single number, entirely in
 the browser. No trained model and no corpus of existing music: form, harmony and melodic contour come
 from rules, everything else from a seeded random generator. The style sets meter, tempo, accompaniment
 preferences and a bias on the melodic character. Export as MIDI, WAV or MP3.
 
 The same seed always writes the same piece.
 
-![Piano Song Creator](docs/screenshot.png)
+![Piano Music Generator](docs/screenshot.png)
 
 ## Why it's not perfect
 
@@ -125,6 +125,7 @@ their textures are drawn independently. On top of that:
 - `app.js`, `index.html` - interface, playback, piano roll
 - `composer.test.mjs` - musical invariants over many seeds and a diversity check
 - `docs/` - the screenshot used above
+- `tools/make-images.mjs` - rebuilds that screenshot and the itch.io promotional set into `dist/promo/`
 - `tools/build-itch.sh` - packs the four runtime files into `dist/`, as the zip itch.io expects
 
 ## Credits
