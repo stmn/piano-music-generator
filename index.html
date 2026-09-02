@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Piano Song Creator</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: oklch(0.17 0.008 260);
+    --panel: oklch(0.21 0.01 260);
+    --field: oklch(0.27 0.012 260);
+    --field-hover: oklch(0.32 0.013 260);
+    --line: oklch(0.30 0.012 260);
+    --text: oklch(0.93 0.006 260);
+    --muted: oklch(0.70 0.012 260);
+    --accent: oklch(0.80 0.14 80);
+    --accent-ink: oklch(0.22 0.05 80);
+    --right: oklch(0.78 0.11 250);
+    --left: oklch(0.80 0.12 160);
+    --radius: 8px;
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  * { box-sizing: border-box; }
+  html, body { background: var(--bg); }
+  body { margin: 0; color: var(--text); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1200px; margin: 0 auto; padding: 20px 20px 48px; display: flex; flex-direction: column; gap: 14px; }
+
+  /* Control panel: two rows, generation above playback. */
+  .panel { background: var(--panel); border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; gap: 16px; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; }
+  .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .field > span { font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; gap: 10px; }
+  .field > span b { font-weight: 500; color: var(--text); font-variant-numeric: tabular-nums; }
+  .group { display: flex; gap: 6px; align-items: center; }
+  select, input[type=number] {
+    height: 36px; background: var(--field); color: var(--text); border: 0; border-radius: var(--radius);
+    padding: 0 10px; font: inherit; min-width: 0; transition: background-color 150ms var(--ease);
+  }
+  select:hover, input[type=number]:hover { background: var(--field-hover); }
+  select { min-width: 132px; }
+  input[type=number] { width: 118px; }
+  select:focus-visible, input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  input[type=range] { width: 150px; height: 36px; margin: 0; accent-color: var(--accent); }
+  .field.wide input[type=range] { width: 140px; }
+  button {
+    height: 36px; padding: 0 14px; background: var(--field); color: var(--text); border: 0; border-radius: var(--radius);
+    font: inherit; font-weight: 500; cursor: pointer; transition: background-color 150ms var(--ease), transform 150ms var(--ease);
+  }
+  button:hover:not(:disabled) { background: var(--field-hover); }
+  button:active:not(:disabled) { transform: translateY(1px); }
+  button:disabled { opacity: 0.4; cursor: default; }
+  button.primary { background: var(--accent); color: var(--accent-ink); min-width: 96px; }
+  button.primary:hover:not(:disabled) { background: oklch(0.84 0.14 80); }
+  button.primary.active { background: oklch(0.32 0.06 80); color: var(--accent); }
+  button.primary.active:hover:not(:disabled) { background: oklch(0.37 0.07 80); color: var(--accent); }
+  .segmented { display: flex; gap: 2px; }
+  .segmented button { border-radius: 0; }
+  .segmented button:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+  .segmented button:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
+  .push { margin-left: auto; }
+
+  .status { font-size: 13px; color: var(--accent); padding: 0 4px; }
+
+  .rollwrap { overflow: auto; height: 420px; background: var(--panel); border-radius: 12px; }
+  #roll { display: block; width: 100%; height: 420px; cursor: pointer; }
+  .rollwrap.editing #roll { cursor: crosshair; }
+  #roll.grab { cursor: grabbing; }
+  button.toggle.on { background: oklch(0.32 0.06 80); color: var(--accent); }
+
+  /* Everything descriptive lives below the roll. */
+  .about { display: flex; flex-direction: column; gap: 8px; max-width: 75ch; color: var(--muted); font-size: 13px; }
+  .about #title { margin: 0; font-size: 15px; color: var(--text); }
+  .about #title .meta { color: var(--muted); font-size: 13px; margin-left: 8px; font-variant-numeric: tabular-nums; }
+  .about #desc { margin: 0; text-wrap: pretty; }
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+
+  @media (max-width: 720px) {
+    .push { margin-left: 0; }
+    #roll { height: 280px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    button, select, input { transition: none; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <section class="panel" aria-label="Controls">
+    <div class="row">
+      <label class="field"><span>Style</span>
+        <select id="style"></select>
+      </label>
+      <div class="field"><span>Key</span>
+        <div class="group">
+          <select id="root" aria-label="Root" style="min-width:76px"></select>
+          <select id="mode" aria-label="Mode" style="min-width:96px">
+            <option value="major">major</option>
+            <option value="minor">minor</option>
+          </select>
+        </div>
+      </div>
+      <label class="field"><span>Tempo <b id="tempoVal"></b></span>
+        <input id="tempo" type="range" min="40" max="180" step="1">
+      </label>
+      <div class="field"><span>Seed</span>
+        <div class="group">
+          <input id="seed" type="number" min="1" max="999999999" value="65255" aria-label="Seed">
+          <button id="randomSeed" type="button">Random</button>
+        </div>
+      </div>
+      <div class="field"><span>Re-roll one hand, keep the other</span>
+        <div class="group">
+          <button id="newLeft" type="button">New left hand</button>
+          <button id="newMelody" type="button">New melody</button>
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <button id="play" type="button" class="primary" disabled>Play</button>
+      <button id="editMode" type="button" class="toggle" disabled hidden>Edit</button>
+      <label class="field"><span>Piano</span>
+        <select id="piano" style="min-width:140px"></select>
+      </label>
+      <label class="field wide"><span>Left hand <b id="volLeftVal"></b></span>
+        <input id="volLeft" type="range" min="0" max="150" step="5" value="80">
+      </label>
+      <label class="field wide"><span>Right hand <b id="volRightVal"></b></span>
+        <input id="volRight" type="range" min="0" max="150" step="5" value="100">
+      </label>
+      <label class="field"><span>Left articulation <b id="artVal"></b></span>
+        <input id="art" type="range" min="25" max="120" step="5" value="100" style="width:120px">
+      </label>
+      <div class="field push"><span>Download</span>
+        <div class="segmented">
+          <button id="midi" type="button" disabled>MIDI</button>
+          <button id="wav" type="button" disabled>WAV</button>
+          <button id="mp3" type="button" disabled>MP3</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="status" id="status">Loading piano samples...</div>
+
+  <div class="rollwrap" id="rollwrap"><canvas id="roll"></canvas></div>
+
+  <section class="about">
+    <p id="title"></p>
+    <p id="desc"></p>
+    <div class="legend">
+      <span><i style="background:var(--left)"></i>left hand (accompaniment)</span>
+      <span><i style="background:var(--right)"></i>right hand (melody)</span>
+      <span><i style="background:var(--accent)"></i>playhead</span>
+    </div>
+  </section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js"></script>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
