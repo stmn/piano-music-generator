@@ -11,10 +11,6 @@ The same seed always writes the same piece.
 
 ![Piano Music Generator](docs/screenshot.png)
 
-## How it works
-
-![How a piece is built](docs/process.png)
-
 ## Why it's not perfect
 
 This is a rule-based generator, not a composer. Worth knowing before you decide what it is for:
@@ -128,7 +124,7 @@ their textures are drawn independently. On top of that:
 - `midi.js` - Standard MIDI File writer (handles 6/8)
 - `app.js`, `index.html` - interface, playback, piano roll
 - `composer.test.mjs` - musical invariants over many seeds and a diversity check
-- `docs/` - the images the README uses
+- `docs/` - the screenshot used above
 - `tools/make-images.mjs` - rebuilds that screenshot and the itch.io promotional set into `dist/promo/`
 - `tools/build-itch.sh` - packs the four runtime files into `dist/`, as the zip itch.io expects
 
